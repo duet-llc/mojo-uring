@@ -1,0 +1,21 @@
+[workspace]
+name = "mojo-uring"
+version = "0.0.1"
+description = "A high-performance async I/O library for Mojo"
+authors = ["Duet LLC <contact@duet.llc>"]
+license = "Apache-2.0"
+repository = "https://github.com/duet-llc/mojo-uring"
+channels = ["https://conda.modular.com/max-nightly/", "conda-forge"]
+platforms = ["linux-64", "linux-aarch64"]
+
+[dependencies]
+mojo = "*"
+bash = "*"
+findutils = "*"
+
+[tasks]
+test = "bash -c 'find test -name \"*.mojo\" -print0 | xargs -0 -P 0 -I TEST mojo -I src TEST'"
+format = "mojo format --quiet src test"
+
+[system-requirements]
+linux = "5.1"
