@@ -1,15 +1,21 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Duet LLC <contact@duet.llc>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 set -euo pipefail
 
-# Get staged .mojo files (Added, Copied, Modified, Renamed)
-STAGED_MOJO_FILES=$(git diff --staged --name-only --diff-filter=ACMR -- '*.mojo')
+STAGED_FILES=$(git diff --staged --name-only --diff-filter=ACMR)
 
-# If there are staged .mojo files, format them
+STAGED_MOJO_FILES=$(echo "$STAGED_FILES" | grep '\.mojo$' || true)
 if [ -n "$STAGED_MOJO_FILES" ]; then
   mojo format --quiet $STAGED_MOJO_FILES
-  # Re-stage the formatted files
   git add $STAGED_MOJO_FILES
 fi
 
-# Run tests before allowing commit
+if [ -n "$STAGED_FILES" ]; then
+  reuse lint-file --quiet $STAGED_FILES
+fi
+
 ./test/run.sh
