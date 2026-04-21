@@ -1,15 +1,15 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Get staged .mojo files (Added, Copied, Modified, Renamed)
 STAGED_MOJO_FILES=$(git diff --staged --name-only --diff-filter=ACMR -- '*.mojo')
 
 # If there are staged .mojo files, format them
 if [ -n "$STAGED_MOJO_FILES" ]; then
-  pixi run mojo format --quiet $STAGED_MOJO_FILES
+  mojo format --quiet $STAGED_MOJO_FILES
   # Re-stage the formatted files
   git add $STAGED_MOJO_FILES
 fi
 
 # Run tests before allowing commit
-pixi run test
+./test/run.sh

@@ -13,9 +13,5 @@ mojo = "*"
 bash = "*"
 findutils = "*"
 
-[tasks]
-test = "bash -c 'find test -name \"*.mojo\" -print0 | xargs -0 -P 0 -I TEST mojo -I src TEST'"
-format = "mojo format --quiet src test"
-
 [system-requirements]
 linux = "5.1"
