@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Duet LLC <contact@duet.llc>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Tests for the ring module."""
 
 from std.testing import assert_equal, TestSuite
