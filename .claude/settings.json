@@ -7,6 +7,11 @@
                 "hooks": [
                     {
                         "type": "command",
+                        "command": "pixi shell-hook -s bash >> \"$CLAUDE_ENV_FILE\"",
+                        "statusMessage": "Setting up pixi environment..."
+                    },
+                    {
+                        "type": "command",
                         "command": "git config core.hooksPath .githooks",
                         "statusMessage": "Configuring git hooks directory..."
                     }
