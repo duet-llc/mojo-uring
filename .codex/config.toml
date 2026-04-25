@@ -1,0 +1,2 @@
+[shell_environment_policy]
+set = { BASH_ENV = "$(git rev-parse --show-toplevel)/.codex/env/bash/env" }
