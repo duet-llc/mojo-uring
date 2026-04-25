@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Duet LLC <contact@duet.llc>
+#
+# SPDX-License-Identifier: Apache-2.0
+unset BASH_ENV
+
+if command -v pixi >/dev/null 2>&1; then
+  eval "$(pixi shell-hook --change-ps1=false --no-completions)"
+fi

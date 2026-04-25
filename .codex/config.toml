@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Duet LLC <contact@duet.llc>
+#
+# SPDX-License-Identifier: Apache-2.0
+[shell_environment_policy.set]
+BASH_ENV = "$(git rev-parse --show-toplevel 2>/dev/null | sed 's|$|/.codex/env/bash/env|')"
