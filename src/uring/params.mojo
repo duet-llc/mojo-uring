@@ -7,7 +7,7 @@ from std.collections import InlineArray
 
 
 @align(8)
-struct _SubmissionQueueRingOffsets:
+struct _SubmissionQueueRingOffsets(ImplicitlyCopyable):
     var _head: UInt32
     var _tail: UInt32
     var _ring_mask: UInt32
@@ -31,7 +31,7 @@ struct _SubmissionQueueRingOffsets:
 
 
 @align(8)
-struct _CompletionQueueRingOffsets:
+struct _CompletionQueueRingOffsets(ImplicitlyCopyable):
     var _head: UInt32
     var _tail: UInt32
     var _ring_mask: UInt32
@@ -55,7 +55,7 @@ struct _CompletionQueueRingOffsets:
 
 
 @align(8)
-struct Params:
+struct _Params(ImplicitlyCopyable):
     var _sq_entries: UInt32
     var _cq_entries: UInt32
     var _flags: UInt32
@@ -78,3 +78,10 @@ struct Params:
         self._resv = InlineArray[UInt32, 3](fill=0)
         self._sq_off = _SubmissionQueueRingOffsets()
         self._cq_off = _CompletionQueueRingOffsets()
+
+
+struct Params(ImplicitlyCopyable):
+    var _params: _Params
+
+    def __init__(out self):
+        self._params = _Params()
