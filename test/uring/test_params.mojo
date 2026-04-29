@@ -7,27 +7,27 @@ from std.sys.info import size_of
 from std.testing import TestSuite, assert_equal
 
 from uring.params import (
-    Params,
     _CompletionQueueRingOffsets,
+    _Params,
     _SubmissionQueueRingOffsets,
 )
 
 
 def test_params_offsets() raises:
-    assert_equal(offset_of[Params, name="_sq_entries"](), 0)
-    assert_equal(offset_of[Params, name="_cq_entries"](), 4)
-    assert_equal(offset_of[Params, name="_flags"](), 8)
-    assert_equal(offset_of[Params, name="_sq_thread_cpu"](), 12)
-    assert_equal(offset_of[Params, name="_sq_thread_idle"](), 16)
-    assert_equal(offset_of[Params, name="_features"](), 20)
-    assert_equal(offset_of[Params, name="_wq_fd"](), 24)
-    assert_equal(offset_of[Params, name="_resv"](), 28)
-    assert_equal(offset_of[Params, name="_sq_off"](), 40)
-    assert_equal(offset_of[Params, name="_cq_off"](), 80)
+    assert_equal(offset_of[_Params, name="_sq_entries"](), 0)
+    assert_equal(offset_of[_Params, name="_cq_entries"](), 4)
+    assert_equal(offset_of[_Params, name="_flags"](), 8)
+    assert_equal(offset_of[_Params, name="_sq_thread_cpu"](), 12)
+    assert_equal(offset_of[_Params, name="_sq_thread_idle"](), 16)
+    assert_equal(offset_of[_Params, name="_features"](), 20)
+    assert_equal(offset_of[_Params, name="_wq_fd"](), 24)
+    assert_equal(offset_of[_Params, name="_resv"](), 28)
+    assert_equal(offset_of[_Params, name="_sq_off"](), 40)
+    assert_equal(offset_of[_Params, name="_cq_off"](), 80)
 
 
 def test_params_size() raises:
-    assert_equal(size_of[Params](), 120)
+    assert_equal(size_of[_Params](), 120)
 
 
 def test_submission_queue_ring_offsets_offsets() raises:
