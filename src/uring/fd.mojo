@@ -26,10 +26,8 @@
                     )
                 )
 
-            if errno == ErrNo.EINTR:
-                continue
-            break
-
+            if errno != ErrNo.EINTR:
+                break
         debug_assert[assert_mode="safe"](errno == ErrNo.SUCCESS, errno)
                     "syscall",
                     c_long,
