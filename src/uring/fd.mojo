@@ -15,35 +15,33 @@ struct _FileDescriptor:
 
     def __del__(deinit self):
         var errno: ErrNo
-        while True:
-            comptime if is_triple["x86_64-unknown-linux-gnu"]():
-                errno = ErrNo(
-                    c_int(
-                        -inlined_assembly[
-                            "syscall",
-                            c_long,
-                            c_long,
-                            c_int,
-                            constraints="={rax},{rax},{rdi},~{rcx},~{r11},~{memory}",
-                        ](3, self._value)
-                    )
+        comptime if is_triple["x86_64-unknown-linux-gnu"]():
+            errno = ErrNo(
+                c_int(
+                    -inlined_assembly[
+                        "syscall",
+                        c_long,
+                        c_long,
+                        c_int,
+                        constraints="={rax},{rax},{rdi},~{rcx},~{r11},~{memory}",
+                    ](3, self._value)
                 )
-            elif is_triple["aarch64-unknown-linux-gnu"]():
-                errno = ErrNo(
-                    c_int(
-                        -inlined_assembly[
-                            "svc #0",
-                            c_long,
-                            c_long,
-                            c_int,
-                            constraints="={x0},{x8},{x0},~{memory}",
-                        ](57, self._value)
-                    )
+            )
+        elif is_triple["aarch64-unknown-linux-gnu"]():
+            errno = ErrNo(
+                c_int(
+                    -inlined_assembly[
+                        "svc #0",
+                        c_long,
+                        c_long,
+                        c_int,
+                        constraints="={x0},{x8},{x0},~{memory}",
+                    ](57, self._value)
                 )
-            else:
-                CompilationTarget.unsupported_target_error()
+            )
+        else:
+            CompilationTarget.unsupported_target_error()
 
-            if errno != ErrNo.EINTR:
-                break
-
-        debug_assert[assert_mode="safe"](errno == ErrNo.SUCCESS, errno)
+        debug_assert[assert_mode="safe"](
+            errno == ErrNo.SUCCESS or errno == ErrNo.EINTR, errno
+        )
