@@ -7,11 +7,9 @@ from std.sys import inlined_assembly
 from std.sys.info import CompilationTarget, is_triple
 
 
+@fieldwise_init
 struct _FileDescriptor:
     var _value: c_int
-
-    def __init__(out self, value: c_int):
-        self._value = value
 
     def __del__(deinit self):
         var result: c_long
@@ -34,4 +32,4 @@ struct _FileDescriptor:
         else:
             CompilationTarget.unsupported_target_error()
 
-        debug_assert[assert_mode="safe"](result == 0, ErrNo(c_int(-result)))
+        assert result == 0, ErrNo(c_int(-result))
