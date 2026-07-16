@@ -10,11 +10,11 @@ authors = ["Duet LLC <contact@duet.llc>"]
 license = "Apache-2.0"
 repository = "https://github.com/duet-llc/mojo-uring"
 channels = ["https://conda.modular.com/max-nightly/", "conda-forge"]
-platforms = ["linux-64", "linux-aarch64"]
+platforms = [
+    { platform = "linux-64", linux = "5.1" },
+    { platform = "linux-aarch64", linux = "5.1" },
+]
 
 [dependencies]
-mojo = "*"
+mojo = "==1.0.0b3.dev2026071505"
 reuse = "6.2.0.*"
-
-[system-requirements]
-linux = "5.1"
