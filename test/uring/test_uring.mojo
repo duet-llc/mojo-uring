@@ -11,6 +11,11 @@ def test_uring_success() raises:
     _ = Uring(128, Params())
 
 
+def test_uring_traits() raises:
+    comptime assert conforms_to(Uring, Movable)
+    comptime assert not conforms_to(Uring, Copyable)
+
+
 def test_uring_invalid_entries() raises:
     with assert_raises(contains="Invalid argument"):
         _ = Uring(65536, Params())

@@ -80,7 +80,7 @@ struct _Params(ImplicitlyCopyable):
         self._cq_off = _CompletionQueueRingOffsets()
 
 
-struct Params(ImplicitlyCopyable):
+struct Params(Movable):
     var _params: _Params
 
     def __init__(out self):
