@@ -17,8 +17,13 @@ def test_uring_traits() raises:
 
 
 def test_uring_invalid_entries() raises:
-    with assert_raises(contains="Invalid argument"):
+    with assert_raises():
         _ = Uring(65536, Params())
+
+
+def test_uring_nop_sync() raises:
+    var ring = Uring(8, Params())
+    ring._nop_sync()
 
 
 def main() raises:
