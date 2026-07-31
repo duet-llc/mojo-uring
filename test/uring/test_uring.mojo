@@ -12,6 +12,7 @@ def test_uring_success() raises:
 
 
 def test_uring_traits() raises:
+    comptime assert conforms_to(Uring, ImplicitlyDeletable)
     comptime assert conforms_to(Uring, Movable)
     comptime assert not conforms_to(Uring, Copyable)
 
@@ -19,6 +20,12 @@ def test_uring_traits() raises:
 def test_uring_invalid_entries() raises:
     with assert_raises(contains="Invalid argument"):
         _ = Uring(65536, Params())
+
+
+def test_uring_nop_compiles() raises:
+    var io = Uring(8, Params())
+    var co = io.nop()
+    co^.force_destroy()
 
 
 def main() raises:

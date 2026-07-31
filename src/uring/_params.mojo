@@ -3,9 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from std.collections import InlineArray
-
-
 @align(8)
 struct _SubmissionQueueRingOffsets(ImplicitlyCopyable):
     var _head: UInt32
@@ -55,7 +52,7 @@ struct _CompletionQueueRingOffsets(ImplicitlyCopyable):
 
 
 @align(8)
-struct _Params(ImplicitlyCopyable):
+struct _Params(Movable):
     var _sq_entries: UInt32
     var _cq_entries: UInt32
     var _flags: UInt32
@@ -63,7 +60,7 @@ struct _Params(ImplicitlyCopyable):
     var _sq_thread_idle: UInt32
     var _features: UInt32
     var _wq_fd: UInt32
-    var _resv: InlineArray[UInt32, 3]
+    var _resv: Array[UInt32, 3]
     var _sq_off: _SubmissionQueueRingOffsets
     var _cq_off: _CompletionQueueRingOffsets
 
@@ -75,7 +72,7 @@ struct _Params(ImplicitlyCopyable):
         self._sq_thread_idle = 0
         self._features = 0
         self._wq_fd = 0
-        self._resv = InlineArray[UInt32, 3](fill=0)
+        self._resv = Array[UInt32, 3](fill=0)
         self._sq_off = _SubmissionQueueRingOffsets()
         self._cq_off = _CompletionQueueRingOffsets()
 
