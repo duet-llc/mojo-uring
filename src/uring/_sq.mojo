@@ -10,7 +10,7 @@ from ._params import _SubmissionQueueRingOffsets
 
 
 @align(8)
-struct _SubmissionQueueEntry(ImplicitlyCopyable):
+struct _SubmissionQueueEntry:
     var _opcode: UInt8
     var _flags: UInt8
     var _ioprio: UInt16
@@ -42,16 +42,14 @@ struct _SubmissionQueueEntry(ImplicitlyCopyable):
 
 
 struct _SubmissionQueue(Movable):
-    var _khead: UnsafePointer[Atomic[DType.uint32], MutUntrackedOrigin]
+    var _khead: UnsafePointer[Atomic[DType.uint32], ImmUntrackedOrigin]
     var _ktail: UnsafePointer[Atomic[DType.uint32], MutUntrackedOrigin]
-    var _array: UnsafePointer[UInt32, MutUntrackedOrigin]
     var _sqes: UnsafePointer[_SubmissionQueueEntry, MutUntrackedOrigin]
     var _mask: UInt32
     var _sq_mmap: _Mmap
     var _sqes_mmap: _Mmap
     var _head: UInt32
     var _tail: UInt32
-    var _pending: UInt32
 
     def __init__(
         out self,
@@ -59,26 +57,26 @@ struct _SubmissionQueue(Movable):
         var sqes_mmap: _Mmap,
         offsets: _SubmissionQueueRingOffsets,
     ):
-        self._khead = (sq_mmap._address + Int(offsets._head)).bitcast[
-            Atomic[DType.uint32]
-        ]()
+        self._khead = (
+            (sq_mmap._address + Int(offsets._head))
+            .unsafe_mut_cast[False]()
+            .bitcast[Atomic[DType.uint32]]()
+        )
         self._ktail = (sq_mmap._address + Int(offsets._tail)).bitcast[
             Atomic[DType.uint32]
         ]()
-        self._array = (sq_mmap._address + Int(offsets._array)).bitcast[UInt32]()
+        var array = (sq_mmap._address + Int(offsets._array)).bitcast[UInt32]()
         self._sqes = sqes_mmap._address.bitcast[_SubmissionQueueEntry]()
         var ring_mask = (sq_mmap._address + Int(offsets._ring_mask)).bitcast[
             UInt32
         ]()
         self._mask = ring_mask[]
+        for index in range(self._mask + 1):
+            array[Int(index)] = index
         self._sq_mmap = sq_mmap^
         self._sqes_mmap = sqes_mmap^
         self._head = UInt32(self._khead[].load())
         self._tail = UInt32(self._ktail[].load())
-        self._pending = 0
-
-    def _has_pending(self) -> Bool:
-        return self._pending != 0
 
     def _refresh_head(mut self):
         self._head = UInt32(self._khead[].load())
@@ -94,20 +92,9 @@ struct _SubmissionQueue(Movable):
 
         var index = self._tail & self._mask
         self._tail += 1
-        self._pending += 1
         var sqe = self._sqes + Int(index)
         sqe[] = _SubmissionQueueEntry()
         return sqe
 
     def _publish(mut self):
-        if self._pending == 0:
-            return
-
-        var start = self._tail - self._pending
-        var cursor = start
-        while cursor != self._tail:
-            self._array[Int(cursor & self._mask)] = cursor & self._mask
-            cursor += 1
-
         self._ktail[].store(self._tail)
-        self._pending = 0

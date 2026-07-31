@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from std.builtin.coroutine import AnyCoroutine, _suspend_async
+from std.builtin.coroutine import AnyCoroutine, _coro_resume_fn, _suspend_async
 from std.ffi import ErrNo, c_int, c_long, c_size_t
 from std.memory import Pointer
 from std.sys import inlined_assembly
@@ -152,4 +152,10 @@ struct Uring(Movable):
 
         _suspend_async[async_body]()
         _ = self._enter(1, 1, 0)
-        self._cq._reap_ready()
+        for cqe in self._cq:
+            var coroutine = rebind[AnyCoroutine](
+                UnsafePointer[NoneType, MutUntrackedOrigin](
+                    unsafe_from_address=Int(cqe[]._user_data)
+                )
+            )
+            _coro_resume_fn(coroutine)
