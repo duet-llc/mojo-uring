@@ -26,7 +26,7 @@ comptime _SYS_IO_URING_ENTER = 426
 comptime _IORING_OP_NOP = 0
 
 
-struct Uring(Movable):
+struct Uring(ImplicitlyDeletable where False, Movable):
     var _sq: _SubmissionQueue
     var _cq: _CompletionQueue
     var _fd: _FileDescriptor
@@ -86,8 +86,10 @@ struct Uring(Movable):
         )
         self._cq = _CompletionQueue(cq_mmap^, params._params._cq_off)
 
+    def close(deinit self):
+        pass
+
     def _submit(mut self):
-        self._cq._khead[].store[ordering=Ordering.RELEASE](self._cq._head)
         self._sq._ktail[].store[ordering=Ordering.RELEASE](self._sq._tail)
 
         var result: c_long
