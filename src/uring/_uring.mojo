@@ -26,7 +26,7 @@ comptime _SYS_IO_URING_ENTER = 426
 comptime _IORING_OP_NOP = 0
 
 
-struct Uring(ImplicitlyDeletable where False, Movable):
+struct Uring(Movable):
     var _sq: _SubmissionQueue
     var _cq: _CompletionQueue
     var _fd: _FileDescriptor
@@ -85,9 +85,6 @@ struct Uring(ImplicitlyDeletable where False, Movable):
             sq_mmap^, sqes_mmap^, params._params._sq_off
         )
         self._cq = _CompletionQueue(cq_mmap^, params._params._cq_off)
-
-    def close(deinit self):
-        pass
 
     def _submit(mut self):
         self._sq._ktail[].store[ordering=Ordering.RELEASE](self._sq._tail)
@@ -155,23 +152,30 @@ struct Uring(ImplicitlyDeletable where False, Movable):
 
         @parameter
         def async_body(hdl: AnyCoroutine) capturing:
-            ref sqe = self._sq._sqes[Int(self._sq._tail & self._sq._mask)]
+            ref sqe = self._sq._sqes[self._sq._tail & self._sq._mask]
             sqe = _SubmissionQueueEntry()
             submit(sqe)
             sqe._user_data = UInt64(
-                Int(rebind[OpaquePointer[ImmUntrackedOrigin]](hdl))
+                rebind[OpaquePointer[ImmUntrackedOrigin]](hdl)
             )
             self._sq._tail += 1
 
         _suspend_async[async_body]()
 
-        ref cqe = self._cq._cqes[Int(self._cq._head & self._cq._mask)]
+        ref cqe = self._cq._cqes[self._cq._head & self._cq._mask]
         try:
             return complete(cqe)
         finally:
             self._cq._head += 1
 
     async def nop(mut self) raises:
+        """Submit a no-op and suspend until its completion is dispatched.
+
+        The returned coroutine must be awaited. Force-destroying it after it
+        starts is a user error because its handle remains in kernel-visible
+        `user_data` until completion. Cancellation is not supported yet.
+        """
+
         @parameter
         def submit(mut sqe: _SubmissionQueueEntry) capturing:
             sqe._opcode = _IORING_OP_NOP

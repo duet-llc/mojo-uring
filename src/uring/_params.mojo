@@ -52,7 +52,7 @@ struct _CompletionQueueRingOffsets(ImplicitlyCopyable):
 
 
 @align(8)
-struct _Params(ImplicitlyCopyable):
+struct _Params(Movable):
     var _sq_entries: UInt32
     var _cq_entries: UInt32
     var _flags: UInt32

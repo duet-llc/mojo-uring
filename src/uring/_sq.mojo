@@ -56,16 +56,16 @@ struct _SubmissionQueue(Movable):
         offsets: _SubmissionQueueRingOffsets,
     ):
         self._ktail = Pointer[Atomic[DType.uint32], MutUntrackedOrigin](
-            unsafe_from_address=Int(sq_mmap._address) + Int(offsets._tail)
+            unsafe_from_address=Int(sq_mmap._address + offsets._tail)
         )
-        var array = (sq_mmap._address + Int(offsets._array)).bitcast[UInt32]()
+        var array = (sq_mmap._address + offsets._array).bitcast[UInt32]()
         self._sqes = sqes_mmap._address.bitcast[_SubmissionQueueEntry]()
         var ring_mask = Pointer[UInt32, ImmUntrackedOrigin](
-            unsafe_from_address=Int(sq_mmap._address) + Int(offsets._ring_mask)
+            unsafe_from_address=Int(sq_mmap._address + offsets._ring_mask)
         )
         self._mask = ring_mask[]
         for index in range(self._mask + 1):
-            array[Int(index)] = index
+            array[index] = index
         self._sq_mmap = sq_mmap^
         self._sqes_mmap = sqes_mmap^
         self._head = 0

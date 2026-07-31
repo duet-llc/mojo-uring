@@ -27,18 +27,18 @@ struct _CompletionQueue(Movable):
         out self, var cq_mmap: _Mmap, offsets: _CompletionQueueRingOffsets
     ):
         self._khead = Pointer[Atomic[DType.uint32], MutUntrackedOrigin](
-            unsafe_from_address=Int(cq_mmap._address) + Int(offsets._head)
+            unsafe_from_address=Int(cq_mmap._address + offsets._head)
         )
         self._ktail = Pointer[Atomic[DType.uint32], ImmUntrackedOrigin](
-            unsafe_from_address=Int(cq_mmap._address) + Int(offsets._tail)
+            unsafe_from_address=Int(cq_mmap._address + offsets._tail)
         )
         self._cqes = (
-            (cq_mmap._address + Int(offsets._cqes))
+            (cq_mmap._address + offsets._cqes)
             .as_imm()
             .bitcast[_CompletionQueueEntry]()
         )
         var ring_mask = Pointer[UInt32, ImmUntrackedOrigin](
-            unsafe_from_address=Int(cq_mmap._address) + Int(offsets._ring_mask)
+            unsafe_from_address=Int(cq_mmap._address + offsets._ring_mask)
         )
         self._mask = ring_mask[]
         self._cq_mmap = cq_mmap^
