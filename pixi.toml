@@ -16,5 +16,5 @@ platforms = [
 ]
 
 [dependencies]
-mojo = "==1.0.0b3.dev2026071505"
+mojo = "==1.0.0b3.dev2026072806"
 reuse = "6.2.0.*"

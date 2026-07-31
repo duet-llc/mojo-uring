@@ -40,7 +40,7 @@ struct Uring(Movable):
                 c_long,
                 c_long,
                 UInt32,
-                Pointer[mut=True, _Params, origin_of(params._params)],
+                Pointer[_Params, origin_of(params._params)],
                 constraints="={rax},{rax},{rdi},{rsi},~{rcx},~{r11},~{memory}",
             ](_SYS_IO_URING_SETUP, entries, Pointer(to=params._params))
         elif is_triple["aarch64-unknown-linux-gnu"]():
@@ -49,7 +49,7 @@ struct Uring(Movable):
                 c_long,
                 c_long,
                 UInt32,
-                Pointer[mut=True, _Params, origin_of(params._params)],
+                Pointer[_Params, origin_of(params._params)],
                 constraints="={x0},{x8},{x0},{x1},~{memory}",
             ](_SYS_IO_URING_SETUP, entries, Pointer(to=params._params))
         else:
@@ -142,10 +142,11 @@ struct Uring(Movable):
 
     @always_inline
     def _schedule[
-        Result: Movable,
+        T: AnyType,
+        //,
         submit: def(mut _SubmissionQueueEntry) capturing -> None,
-        complete: def(_CompletionQueueEntry) capturing raises ErrNo -> Result,
-    ](mut self) raises ErrNo -> Result:
+        complete: def(_CompletionQueueEntry) capturing raises ErrNo -> T,
+    ](mut self) raises ErrNo -> T:
         if self._sq._tail - self._sq._head > self._sq._mask:
             self._sq._head = UInt32(
                 self._sq._khead[].load[ordering=Ordering.ACQUIRE]()
@@ -187,4 +188,4 @@ struct Uring(Movable):
             if cqe._res < 0:
                 raise ErrNo(c_int(-cqe._res))
 
-        self._schedule[NoneType, submit, complete]()
+        self._schedule[submit, complete]()

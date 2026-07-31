@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from std.atomic import Atomic
-from std.collections import InlineArray as Array
 
 from ._mmap import _Mmap
 from ._params import _SubmissionQueueRingOffsets
@@ -42,8 +41,8 @@ struct _SubmissionQueueEntry:
 
 
 struct _SubmissionQueue(Movable):
-    var _khead: Pointer[mut=False, Atomic[DType.uint32], ImmUntrackedOrigin]
-    var _ktail: Pointer[mut=True, Atomic[DType.uint32], MutUntrackedOrigin]
+    var _khead: Pointer[Atomic[DType.uint32], ImmUntrackedOrigin]
+    var _ktail: Pointer[Atomic[DType.uint32], MutUntrackedOrigin]
     var _sqes: UnsafePointer[_SubmissionQueueEntry, MutUntrackedOrigin]
     var _mask: UInt32
     var _sq_mmap: _Mmap
@@ -57,15 +56,15 @@ struct _SubmissionQueue(Movable):
         var sqes_mmap: _Mmap,
         offsets: _SubmissionQueueRingOffsets,
     ):
-        self._khead = Pointer[
-            mut=False, Atomic[DType.uint32], ImmUntrackedOrigin
-        ](unsafe_from_address=Int(sq_mmap._address) + Int(offsets._head))
-        self._ktail = Pointer[
-            mut=True, Atomic[DType.uint32], MutUntrackedOrigin
-        ](unsafe_from_address=Int(sq_mmap._address) + Int(offsets._tail))
+        self._khead = Pointer[Atomic[DType.uint32], ImmUntrackedOrigin](
+            unsafe_from_address=Int(sq_mmap._address) + Int(offsets._head)
+        )
+        self._ktail = Pointer[Atomic[DType.uint32], MutUntrackedOrigin](
+            unsafe_from_address=Int(sq_mmap._address) + Int(offsets._tail)
+        )
         var array = (sq_mmap._address + Int(offsets._array)).bitcast[UInt32]()
         self._sqes = sqes_mmap._address.bitcast[_SubmissionQueueEntry]()
-        var ring_mask = Pointer[mut=False, UInt32, ImmUntrackedOrigin](
+        var ring_mask = Pointer[UInt32, ImmUntrackedOrigin](
             unsafe_from_address=Int(sq_mmap._address) + Int(offsets._ring_mask)
         )
         self._mask = ring_mask[]
@@ -73,5 +72,6 @@ struct _SubmissionQueue(Movable):
             array[Int(index)] = index
         self._sq_mmap = sq_mmap^
         self._sqes_mmap = sqes_mmap^
-        self._head = UInt32(self._khead[].value)
-        self._tail = UInt32(self._ktail[].value)
+        # io_uring_setup initializes every cursor in a new ring to zero.
+        self._head = 0
+        self._tail = 0

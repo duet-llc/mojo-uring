@@ -16,8 +16,8 @@ struct _CompletionQueueEntry:
 
 
 struct _CompletionQueue(Movable):
-    var _khead: Pointer[mut=True, Atomic[DType.uint32], MutUntrackedOrigin]
-    var _ktail: Pointer[mut=False, Atomic[DType.uint32], ImmUntrackedOrigin]
+    var _khead: Pointer[Atomic[DType.uint32], MutUntrackedOrigin]
+    var _ktail: Pointer[Atomic[DType.uint32], ImmUntrackedOrigin]
     var _cqes: UnsafePointer[_CompletionQueueEntry, ImmUntrackedOrigin]
     var _mask: UInt32
     var _cq_mmap: _Mmap
@@ -26,20 +26,21 @@ struct _CompletionQueue(Movable):
     def __init__(
         out self, var cq_mmap: _Mmap, offsets: _CompletionQueueRingOffsets
     ):
-        self._khead = Pointer[
-            mut=True, Atomic[DType.uint32], MutUntrackedOrigin
-        ](unsafe_from_address=Int(cq_mmap._address) + Int(offsets._head))
-        self._ktail = Pointer[
-            mut=False, Atomic[DType.uint32], ImmUntrackedOrigin
-        ](unsafe_from_address=Int(cq_mmap._address) + Int(offsets._tail))
+        self._khead = Pointer[Atomic[DType.uint32], MutUntrackedOrigin](
+            unsafe_from_address=Int(cq_mmap._address) + Int(offsets._head)
+        )
+        self._ktail = Pointer[Atomic[DType.uint32], ImmUntrackedOrigin](
+            unsafe_from_address=Int(cq_mmap._address) + Int(offsets._tail)
+        )
         self._cqes = (
             (cq_mmap._address + Int(offsets._cqes))
-            .unsafe_mut_cast[False]()
+            .as_imm()
             .bitcast[_CompletionQueueEntry]()
         )
-        var ring_mask = Pointer[mut=False, UInt32, ImmUntrackedOrigin](
+        var ring_mask = Pointer[UInt32, ImmUntrackedOrigin](
             unsafe_from_address=Int(cq_mmap._address) + Int(offsets._ring_mask)
         )
         self._mask = ring_mask[]
         self._cq_mmap = cq_mmap^
-        self._head = UInt32(self._khead[].value)
+        # io_uring_setup initializes every cursor in a new ring to zero.
+        self._head = 0
