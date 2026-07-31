@@ -21,5 +21,11 @@ def test_uring_invalid_entries() raises:
         _ = Uring(65536, Params())
 
 
+def test_uring_nop_compiles() raises:
+    var ring = Uring(8, Params())
+    var coroutine = ring.nop()
+    coroutine^.force_destroy()
+
+
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run(quiet=True)

@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from std.builtin.coroutine import AnyCoroutine, _coro_resume_fn, _suspend_async
+from std.atomic import Ordering
+from std.builtin.coroutine import AnyCoroutine, _suspend_async
 from std.ffi import ErrNo, c_int, c_long, c_size_t
 from std.memory import Pointer
 from std.sys import inlined_assembly
@@ -55,7 +56,7 @@ struct Uring(Movable):
             CompilationTarget.unsupported_target_error()
 
         if result < 0:
-            raise ErrNo(Int32(-result))
+            raise ErrNo(c_int(-result))
 
         self._fd = _FileDescriptor(c_int(result))
         var sq_ring_length = c_size_t(
@@ -87,7 +88,7 @@ struct Uring(Movable):
 
     def _enter(
         self, to_submit: UInt32, min_complete: UInt32, flags: UInt32
-    ) raises -> UInt32:
+    ) raises ErrNo -> UInt32:
         var result: c_long
 
         comptime if is_triple["x86_64-unknown-linux-gnu"]():
@@ -136,26 +137,54 @@ struct Uring(Movable):
             CompilationTarget.unsupported_target_error()
 
         if result < 0:
-            raise ErrNo(Int32(-result))
+            raise ErrNo(c_int(-result))
         return UInt32(result)
+
+    @always_inline
+    def _schedule[
+        Result: Movable,
+        submit: def(mut _SubmissionQueueEntry) capturing -> None,
+        complete: def(_CompletionQueueEntry) capturing raises ErrNo -> Result,
+    ](mut self) raises ErrNo -> Result:
+        if self._sq._tail - self._sq._head > self._sq._mask:
+            self._sq._head = UInt32(
+                self._sq._khead[].load[ordering=Ordering.ACQUIRE]()
+            )
+
+        while self._sq._tail - self._sq._head > self._sq._mask:
+            self._cq._khead[].store[ordering=Ordering.RELEASE](self._cq._head)
+            self._sq._ktail[].store[ordering=Ordering.RELEASE](self._sq._tail)
+            _ = self._enter(self._sq._tail - self._sq._head, 0, 0)
+            self._sq._head = UInt32(
+                self._sq._khead[].load[ordering=Ordering.ACQUIRE]()
+            )
+
+        @parameter
+        def async_body(hdl: AnyCoroutine) capturing:
+            ref sqe = self._sq._sqes[Int(self._sq._tail & self._sq._mask)]
+            sqe = _SubmissionQueueEntry()
+            submit(sqe)
+            sqe._user_data = UInt64(
+                Int(rebind[OpaquePointer[ImmUntrackedOrigin]](hdl))
+            )
+            self._sq._tail += 1
+
+        _suspend_async[async_body]()
+
+        ref cqe = self._cq._cqes[Int(self._cq._head & self._cq._mask)]
+        try:
+            return complete(cqe)
+        finally:
+            self._cq._head += 1
 
     async def nop(mut self) raises:
         @parameter
-        def async_body(hdl: AnyCoroutine) capturing:
-            var sqe = self._sq._reserve()
-            sqe[] = _SubmissionQueueEntry()
-            sqe[]._opcode = _IORING_OP_NOP
-            sqe[]._user_data = UInt64(
-                Int(rebind[UnsafePointer[NoneType, MutUntrackedOrigin]](hdl))
-            )
-            self._sq._publish()
+        def submit(mut sqe: _SubmissionQueueEntry) capturing:
+            sqe._opcode = _IORING_OP_NOP
 
-        _suspend_async[async_body]()
-        _ = self._enter(1, 1, 0)
-        for cqe in self._cq:
-            var coroutine = rebind[AnyCoroutine](
-                UnsafePointer[NoneType, MutUntrackedOrigin](
-                    unsafe_from_address=Int(cqe[]._user_data)
-                )
-            )
-            _coro_resume_fn(coroutine)
+        @parameter
+        def complete(cqe: _CompletionQueueEntry) capturing raises ErrNo:
+            if cqe._res < 0:
+                raise ErrNo(c_int(-cqe._res))
+
+        self._schedule[NoneType, submit, complete]()

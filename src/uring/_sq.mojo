@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from std.atomic import Atomic
-from std.collections import InlineArray
+from std.collections import InlineArray as Array
 
 from ._mmap import _Mmap
 from ._params import _SubmissionQueueRingOffsets
@@ -23,7 +23,7 @@ struct _SubmissionQueueEntry:
     var _buf_index: UInt16
     var _personality: UInt16
     var _splice_fd_in: Int32
-    var _pad2: InlineArray[UInt64, 2]
+    var _pad2: Array[UInt64, 2]
 
     def __init__(out self):
         self._opcode = 0
@@ -38,12 +38,12 @@ struct _SubmissionQueueEntry:
         self._buf_index = 0
         self._personality = 0
         self._splice_fd_in = 0
-        self._pad2 = InlineArray[UInt64, 2](fill=0)
+        self._pad2 = Array[UInt64, 2](fill=0)
 
 
 struct _SubmissionQueue(Movable):
-    var _khead: UnsafePointer[Atomic[DType.uint32], ImmUntrackedOrigin]
-    var _ktail: UnsafePointer[Atomic[DType.uint32], MutUntrackedOrigin]
+    var _khead: Pointer[mut=False, Atomic[DType.uint32], ImmUntrackedOrigin]
+    var _ktail: Pointer[mut=True, Atomic[DType.uint32], MutUntrackedOrigin]
     var _sqes: UnsafePointer[_SubmissionQueueEntry, MutUntrackedOrigin]
     var _mask: UInt32
     var _sq_mmap: _Mmap
@@ -57,44 +57,21 @@ struct _SubmissionQueue(Movable):
         var sqes_mmap: _Mmap,
         offsets: _SubmissionQueueRingOffsets,
     ):
-        self._khead = (
-            (sq_mmap._address + Int(offsets._head))
-            .unsafe_mut_cast[False]()
-            .bitcast[Atomic[DType.uint32]]()
-        )
-        self._ktail = (sq_mmap._address + Int(offsets._tail)).bitcast[
-            Atomic[DType.uint32]
-        ]()
+        self._khead = Pointer[
+            mut=False, Atomic[DType.uint32], ImmUntrackedOrigin
+        ](unsafe_from_address=Int(sq_mmap._address) + Int(offsets._head))
+        self._ktail = Pointer[
+            mut=True, Atomic[DType.uint32], MutUntrackedOrigin
+        ](unsafe_from_address=Int(sq_mmap._address) + Int(offsets._tail))
         var array = (sq_mmap._address + Int(offsets._array)).bitcast[UInt32]()
         self._sqes = sqes_mmap._address.bitcast[_SubmissionQueueEntry]()
-        var ring_mask = (sq_mmap._address + Int(offsets._ring_mask)).bitcast[
-            UInt32
-        ]()
+        var ring_mask = Pointer[mut=False, UInt32, ImmUntrackedOrigin](
+            unsafe_from_address=Int(sq_mmap._address) + Int(offsets._ring_mask)
+        )
         self._mask = ring_mask[]
         for index in range(self._mask + 1):
             array[Int(index)] = index
         self._sq_mmap = sq_mmap^
         self._sqes_mmap = sqes_mmap^
-        self._head = UInt32(self._khead[].load())
-        self._tail = UInt32(self._ktail[].load())
-
-    def _refresh_head(mut self):
-        self._head = UInt32(self._khead[].load())
-
-    def _is_full(self) -> Bool:
-        return self._tail - self._head > self._mask
-
-    def _reserve(
-        mut self,
-    ) -> UnsafePointer[_SubmissionQueueEntry, MutUntrackedOrigin]:
-        if self._is_full():
-            self._refresh_head()
-
-        var index = self._tail & self._mask
-        self._tail += 1
-        var sqe = self._sqes + Int(index)
-        sqe[] = _SubmissionQueueEntry()
-        return sqe
-
-    def _publish(mut self):
-        self._ktail[].store(self._tail)
+        self._head = UInt32(self._khead[].value)
+        self._tail = UInt32(self._ktail[].value)
