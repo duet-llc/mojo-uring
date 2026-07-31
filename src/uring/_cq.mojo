@@ -42,5 +42,4 @@ struct _CompletionQueue(Movable):
         )
         self._mask = ring_mask[]
         self._cq_mmap = cq_mmap^
-        # io_uring_setup initializes every cursor in a new ring to zero.
         self._head = 0

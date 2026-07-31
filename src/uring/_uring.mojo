@@ -5,7 +5,6 @@
 from std.atomic import Ordering
 from std.builtin.coroutine import AnyCoroutine, _suspend_async
 from std.ffi import ErrNo, c_int, c_long, c_size_t
-from std.memory import Pointer
 from std.sys import inlined_assembly
 from std.sys.info import CompilationTarget, is_triple, size_of
 
@@ -40,18 +39,18 @@ struct Uring(Movable):
                 c_long,
                 c_long,
                 UInt32,
-                Pointer[_Params, origin_of(params._params)],
+                MutPointer[_Params, origin_of(params._params)],
                 constraints="={rax},{rax},{rdi},{rsi},~{rcx},~{r11},~{memory}",
-            ](_SYS_IO_URING_SETUP, entries, Pointer(to=params._params))
+            ](_SYS_IO_URING_SETUP, entries, MutPointer(to=params._params))
         elif is_triple["aarch64-unknown-linux-gnu"]():
             result = inlined_assembly[
                 "svc #0",
                 c_long,
                 c_long,
                 UInt32,
-                Pointer[_Params, origin_of(params._params)],
+                MutPointer[_Params, origin_of(params._params)],
                 constraints="={x0},{x8},{x0},{x1},~{memory}",
-            ](_SYS_IO_URING_SETUP, entries, Pointer(to=params._params))
+            ](_SYS_IO_URING_SETUP, entries, MutPointer(to=params._params))
         else:
             CompilationTarget.unsupported_target_error()
 

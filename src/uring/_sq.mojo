@@ -72,6 +72,5 @@ struct _SubmissionQueue(Movable):
             array[Int(index)] = index
         self._sq_mmap = sq_mmap^
         self._sqes_mmap = sqes_mmap^
-        # io_uring_setup initializes every cursor in a new ring to zero.
         self._head = 0
         self._tail = 0
