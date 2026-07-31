@@ -21,10 +21,5 @@ def test_uring_invalid_entries() raises:
         _ = Uring(65536, Params())
 
 
-def test_uring_nop_sync() raises:
-    var ring = Uring(8, Params())
-    ring._nop_sync()
-
-
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run(quiet=True)

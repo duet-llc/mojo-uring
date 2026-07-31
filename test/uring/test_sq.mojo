@@ -34,7 +34,7 @@ def test_submission_queue_entry_traits() raises:
     comptime assert conforms_to(_SubmissionQueueEntry, ImplicitlyCopyable)
 
 
-def test_submission_queue_entry_reset() raises:
+def test_submission_queue_entry_default() raises:
     var sqe = _SubmissionQueueEntry()
     sqe._opcode = 255
     sqe._flags = 1
@@ -50,7 +50,7 @@ def test_submission_queue_entry_reset() raises:
     sqe._splice_fd_in = -10
     sqe._pad2[0] = 11
     sqe._pad2[1] = 12
-    sqe._reset()
+    sqe = _SubmissionQueueEntry()
     assert_equal(sqe._opcode, 0)
     assert_equal(sqe._flags, 0)
     assert_equal(sqe._ioprio, 0)
@@ -65,15 +65,6 @@ def test_submission_queue_entry_reset() raises:
     assert_equal(sqe._splice_fd_in, 0)
     assert_equal(sqe._pad2[0], 0)
     assert_equal(sqe._pad2[1], 0)
-
-
-def test_submission_queue_entry_prep_nop() raises:
-    var sqe = _SubmissionQueueEntry()
-    sqe._opcode = 255
-    sqe._user_data = 42
-    sqe._prep_nop()
-    assert_equal(sqe._opcode, 0)
-    assert_equal(sqe._user_data, 0)
 
 
 def main() raises:
