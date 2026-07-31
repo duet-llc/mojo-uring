@@ -17,7 +17,7 @@ def test_uring_traits() raises:
 
 
 def test_uring_invalid_entries() raises:
-    with assert_raises():
+    with assert_raises(contains="Invalid argument"):
         _ = Uring(65536, Params())
 
 
