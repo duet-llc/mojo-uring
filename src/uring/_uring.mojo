@@ -169,13 +169,6 @@ struct Uring(Movable):
             self._cq._head += 1
 
     async def nop(mut self) raises:
-        """Submit a no-op and suspend until its completion is dispatched.
-
-        The returned coroutine must be awaited. Force-destroying it after it
-        starts is a user error because its handle remains in kernel-visible
-        `user_data` until completion. Cancellation is not supported yet.
-        """
-
         @parameter
         def submit(mut sqe: _SubmissionQueueEntry) capturing:
             sqe._opcode = _IORING_OP_NOP
