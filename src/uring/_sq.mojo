@@ -41,7 +41,6 @@ struct _SubmissionQueueEntry:
 
 
 struct _SubmissionQueue(Movable):
-    var _khead: Pointer[Atomic[DType.uint32], ImmUntrackedOrigin]
     var _ktail: Pointer[Atomic[DType.uint32], MutUntrackedOrigin]
     var _sqes: UnsafePointer[_SubmissionQueueEntry, MutUntrackedOrigin]
     var _mask: UInt32
@@ -56,9 +55,6 @@ struct _SubmissionQueue(Movable):
         var sqes_mmap: _Mmap,
         offsets: _SubmissionQueueRingOffsets,
     ):
-        self._khead = Pointer[Atomic[DType.uint32], ImmUntrackedOrigin](
-            unsafe_from_address=Int(sq_mmap._address) + Int(offsets._head)
-        )
         self._ktail = Pointer[Atomic[DType.uint32], MutUntrackedOrigin](
             unsafe_from_address=Int(sq_mmap._address) + Int(offsets._tail)
         )

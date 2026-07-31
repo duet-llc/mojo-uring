@@ -86,59 +86,64 @@ struct Uring(Movable):
         )
         self._cq = _CompletionQueue(cq_mmap^, params._params._cq_off)
 
-    def _enter(
-        self, to_submit: UInt32, min_complete: UInt32, flags: UInt32
-    ) -> UInt32:
-        var result: c_long
+    @no_inline
+    def _submit(mut self):
+        while self._sq._tail - self._sq._head > self._sq._mask:
+            self._cq._khead[].store[ordering=Ordering.RELEASE](self._cq._head)
+            self._sq._ktail[].store[ordering=Ordering.RELEASE](self._sq._tail)
 
-        comptime if is_triple["x86_64-unknown-linux-gnu"]():
-            result = inlined_assembly[
-                "syscall",
-                c_long,
-                c_long,
-                c_int,
-                UInt32,
-                UInt32,
-                UInt32,
-                UInt64,
-                UInt64,
-                constraints="={rax},{rax},{rdi},{rsi},{rdx},{r10},{r8},{r9},~{rcx},~{r11},~{memory}",
-            ](
-                _SYS_IO_URING_ENTER,
-                self._fd._value,
-                to_submit,
-                min_complete,
-                flags,
-                0,
-                0,
-            )
-        elif is_triple["aarch64-unknown-linux-gnu"]():
-            result = inlined_assembly[
-                "svc #0",
-                c_long,
-                c_long,
-                c_int,
-                UInt32,
-                UInt32,
-                UInt32,
-                UInt64,
-                UInt64,
-                constraints="={x0},{x8},{x0},{x1},{x2},{x3},{x4},{x5},~{memory}",
-            ](
-                _SYS_IO_URING_ENTER,
-                self._fd._value,
-                to_submit,
-                min_complete,
-                flags,
-                0,
-                0,
-            )
-        else:
-            CompilationTarget.unsupported_target_error()
+            var result: c_long
+            var to_submit = self._sq._tail - self._sq._head
+            comptime if is_triple["x86_64-unknown-linux-gnu"]():
+                result = inlined_assembly[
+                    "syscall",
+                    c_long,
+                    c_long,
+                    c_int,
+                    UInt32,
+                    UInt32,
+                    UInt32,
+                    UInt64,
+                    UInt64,
+                    constraints="={rax},{rax},{rdi},{rsi},{rdx},{r10},{r8},{r9},~{rcx},~{r11},~{memory}",
+                ](
+                    _SYS_IO_URING_ENTER,
+                    self._fd._value,
+                    to_submit,
+                    0,
+                    0,
+                    0,
+                    0,
+                )
+            elif is_triple["aarch64-unknown-linux-gnu"]():
+                result = inlined_assembly[
+                    "svc #0",
+                    c_long,
+                    c_long,
+                    c_int,
+                    UInt32,
+                    UInt32,
+                    UInt32,
+                    UInt64,
+                    UInt64,
+                    constraints="={x0},{x8},{x0},{x1},{x2},{x3},{x4},{x5},~{memory}",
+                ](
+                    _SYS_IO_URING_ENTER,
+                    self._fd._value,
+                    to_submit,
+                    0,
+                    0,
+                    0,
+                    0,
+                )
+            else:
+                CompilationTarget.unsupported_target_error()
 
-        if result < 0:
-            abort()
-        return UInt32(result)
+            if result < 0:
+                abort(t"io_uring submission failed: {ErrNo(c_int(-result))}")
+            if result == 0:
+                abort("io_uring submission consumed no SQEs")
+            self._sq._head += UInt32(result)
 
     @always_inline
     def _schedule[
@@ -148,17 +153,7 @@ struct Uring(Movable):
         complete: def(_CompletionQueueEntry) capturing raises ErrNo -> T,
     ](mut self) raises ErrNo -> T:
         if self._sq._tail - self._sq._head > self._sq._mask:
-            self._sq._head = UInt32(
-                self._sq._khead[].load[ordering=Ordering.ACQUIRE]()
-            )
-
-        while self._sq._tail - self._sq._head > self._sq._mask:
-            self._cq._khead[].store[ordering=Ordering.RELEASE](self._cq._head)
-            self._sq._ktail[].store[ordering=Ordering.RELEASE](self._sq._tail)
-            _ = self._enter(self._sq._tail - self._sq._head, 0, 0)
-            self._sq._head = UInt32(
-                self._sq._khead[].load[ordering=Ordering.ACQUIRE]()
-            )
+            self._submit()
 
         @parameter
         def async_body(hdl: AnyCoroutine) capturing:
