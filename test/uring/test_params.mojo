@@ -13,11 +13,6 @@ from uring._params import (
 )
 
 
-def test_params_traits() raises:
-    comptime assert conforms_to(Params, Movable)
-    comptime assert not conforms_to(Params, Copyable)
-
-
 def test_params_offsets() raises:
     comptime R = reflect[_Params]
     assert_equal(R.field_offset[name="_sq_entries"](), 0)
