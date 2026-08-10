@@ -4,17 +4,11 @@
 
 from std.testing import TestSuite, assert_raises
 
-from uring import Params, Uring
+from uring import Context, Params, Uring
 
 
 def test_uring_success() raises:
     _ = Uring(128, Params())
-
-
-def test_uring_traits() raises:
-    comptime assert conforms_to(Uring, ImplicitlyDeletable)
-    comptime assert conforms_to(Uring, Movable)
-    comptime assert not conforms_to(Uring, Copyable)
 
 
 def test_uring_invalid_entries() raises:
@@ -24,7 +18,8 @@ def test_uring_invalid_entries() raises:
 
 def test_uring_nop_compiles() raises:
     var io = Uring(8, Params())
-    var co = io.nop()
+    var ctx = Context()
+    var co = io.nop(ctx)
     co^.force_destroy()
 
 

@@ -7,8 +7,9 @@ from std.builtin.coroutine import AnyCoroutine, _suspend_async
 from std.ffi import ErrNo, c_int, c_long, c_size_t
 from std.os import abort
 from std.sys import inlined_assembly
-from std.sys.info import CompilationTarget, is_triple, size_of
+from std.sys.info import CompilationTarget, align_of, is_triple, size_of
 
+from ._context import Context
 from ._cq import _CompletionQueue, _CompletionQueueEntry
 from ._fd import _FileDescriptor
 from ._mmap import _Mmap
@@ -24,6 +25,10 @@ comptime IORING_OFF_SQES = 0x10000000
 comptime _SYS_IO_URING_SETUP = 425
 comptime _SYS_IO_URING_ENTER = 426
 comptime _IORING_OP_NOP = 0
+comptime _IORING_OP_ASYNC_CANCEL = 14
+comptime _ECANCELED = 125
+comptime _CANCELED = 0x1
+comptime _RESERVED = _CANCELED
 
 
 struct Uring(Movable):
@@ -136,8 +141,8 @@ struct Uring(Movable):
         else:
             CompilationTarget.unsupported_target_error()
 
-        if result < 0:
-            abort(String(ErrNo(c_int(-result))))
+        if result <= 0:
+            abort("submission failed")
         self._sq._head += UInt32(result)
 
     @always_inline
@@ -146,12 +151,12 @@ struct Uring(Movable):
         //,
         submit: def(mut _SubmissionQueueEntry) capturing -> None,
         complete: def(_CompletionQueueEntry) capturing raises ErrNo -> T,
-    ](mut self) raises ErrNo -> T:
-        if self._sq._tail - self._sq._head > self._sq._mask:
-            self._submit()
-
+    ](mut self, mut ctx: Context) raises ErrNo -> T:
         @parameter
-        def async_body(hdl: AnyCoroutine) capturing:
+        def submission(hdl: AnyCoroutine) capturing:
+            if self._sq._tail - self._sq._head > self._sq._mask:
+                self._submit()
+
             ref sqe = self._sq._sqes[self._sq._tail & self._sq._mask]
             sqe = _SubmissionQueueEntry()
             submit(sqe)
@@ -160,15 +165,56 @@ struct Uring(Movable):
             )
             self._sq._tail += 1
 
-        _suspend_async[async_body]()
+        var not_canceled: Bool
+        try:
+            not_canceled = ctx._suspend[submission]()
+        except:
+            raise ErrNo(_ECANCELED)
+
+        if not_canceled:
+            ref cqe = self._cq._cqes[self._cq._head & self._cq._mask]
+            try:
+                return complete(cqe)
+            finally:
+                self._cq._head += 1
+
+        @parameter
+        def cancelation(hdl: AnyCoroutine) capturing:
+            comptime assert align_of[AnyCoroutine]() > _RESERVED
+            if self._sq._tail - self._sq._head > self._sq._mask:
+                self._submit()
+
+            var address = UInt64(rebind[OpaquePointer[ImmUntrackedOrigin]](hdl))
+            ref sqe = self._sq._sqes[self._sq._tail & self._sq._mask]
+            sqe = _SubmissionQueueEntry()
+            sqe._opcode = _IORING_OP_ASYNC_CANCEL
+            sqe._addr = address
+            sqe._user_data = address | _CANCELED
+            self._sq._tail += 1
+
+        _suspend_async[cancelation]()
 
         ref cqe = self._cq._cqes[self._cq._head & self._cq._mask]
+        if cqe._user_data & _RESERVED == 0:
+            try:
+                return complete(cqe)
+            finally:
+                self._cq._head += 1
+                _suspend_async[lambda (hdl: AnyCoroutine) capturing: None]()
+
+                self._cq._head += 1
+
+        self._cq._head += 1
+        _suspend_async[lambda (hdl: AnyCoroutine) capturing: None]()
+
+        ref cqe_ = self._cq._cqes[self._cq._head & self._cq._mask]
         try:
-            return complete(cqe)
+            return complete(cqe_)
         finally:
             self._cq._head += 1
 
-    async def nop(mut self) raises:
+    @always_inline
+    async def nop(mut self, mut ctx: Context) raises ErrNo:
         @parameter
         def submit(mut sqe: _SubmissionQueueEntry) capturing:
             sqe._opcode = _IORING_OP_NOP
@@ -176,6 +222,6 @@ struct Uring(Movable):
         @parameter
         def complete(cqe: _CompletionQueueEntry) capturing raises ErrNo:
             if cqe._res < 0:
-                raise ErrNo(c_int(-cqe._res))
+                raise ErrNo(-cqe._res)
 
-        self._schedule[submit, complete]()
+        return self._schedule[submit, complete](ctx)
