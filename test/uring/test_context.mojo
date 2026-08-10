@@ -37,12 +37,5 @@ def test_context_cancel_twice() raises:
         _cancel(ctx)
 
 
-def test_context_copy_shares_cancelation() raises:
-    var ctx = Context()
-    var copy = ctx.copy()
-    _cancel(copy)
-    assert_true(ctx.canceled())
-
-
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run(quiet=True)

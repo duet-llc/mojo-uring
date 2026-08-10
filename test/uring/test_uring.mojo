@@ -19,7 +19,7 @@ def test_uring_invalid_entries() raises:
 def _uring_nop_allows_in_flight_cancel() raises:
     var io = Uring(8, Params())
     var ctx = Context()
-    var co = io.nop(ctx.token())
+    var co = io.nop(ctx)
     try:
         ctx.cancel()
     except:
@@ -30,7 +30,7 @@ def _uring_nop_allows_in_flight_cancel() raises:
 def test_uring_nop_compiles() raises:
     var io = Uring(8, Params())
     var ctx = Context()
-    var co = io.nop(ctx.token())
+    var co = io.nop(ctx)
     co^.force_destroy()
 
 

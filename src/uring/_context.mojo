@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from std.builtin.coroutine import AnyCoroutine, _coro_resume_fn, _suspend_async
-from std.memory import ArcPointer
 from std.sys.info import align_of
 
 
@@ -16,27 +15,36 @@ struct _Canceled:
     pass
 
 
-struct _ContextState(Movable):
-    var _state: UInt64
+@fieldwise_init
+struct _Cell(Movable):
+    var _value: UInt64
+
+    # SAFETY: This provides interior mutability for Context's private state.
+    # Context permits one pending operation and requires serialized access; no
+    # mutable pointer escapes this module, so two mutations cannot overlap.
+    def _mut(self) -> UnsafePointer[UInt64, MutUntrackedOrigin]:
+        var address = Int(
+            rebind[OpaquePointer[ImmUntrackedOrigin]](Pointer(to=self._value))
+        )
+        return UnsafePointer[UInt64, MutUntrackedOrigin](
+            unsafe_from_address=address
+        )
+
+
+struct Context(Defaultable, Movable):
+    var _state: _Cell
 
     def __init__(out self):
-        self._state = 0
-
-
-struct Context(Copyable, Defaultable, Movable):
-    var _shared: ArcPointer[_ContextState]
-
-    def __init__(out self):
-        self._shared = ArcPointer(_ContextState())
+        self._state = _Cell(0)
 
     def cancel(self) raises _Canceled:
         if self.canceled():
             raise _Canceled()
 
-        self._shared[]._state |= _CANCELED
-        var address = self._shared[]._state & ~_RESERVED
+        var state = self._state._mut()
+        state[] |= _CANCELED
+        var address = state[] & ~_RESERVED
         if address:
-            self._shared[]._state &= _RESERVED
             _coro_resume_fn(
                 rebind[AnyCoroutine](
                     OpaquePointer[MutUntrackedOrigin](
@@ -46,22 +54,7 @@ struct Context(Copyable, Defaultable, Movable):
             )
 
     def canceled(self) -> Bool:
-        return Bool(self._shared[]._state & _RESERVED)
-
-    def token(self) -> CancellationToken:
-        return CancellationToken(
-            rebind[UnsafePointer[_ContextState, MutUntrackedOrigin]](
-                MutPointer(to=self._shared[])
-            )
-        )
-
-
-@fieldwise_init
-struct CancellationToken(ImplicitlyCopyable):
-    var _shared: UnsafePointer[_ContextState, MutUntrackedOrigin]
-
-    def canceled(self) -> Bool:
-        return Bool(self._shared[]._state & _RESERVED)
+        return Bool(self._state._value & _RESERVED)
 
     @always_inline
     def _suspend[
@@ -74,11 +67,10 @@ struct CancellationToken(ImplicitlyCopyable):
         def async_body(hdl: AnyCoroutine) capturing:
             comptime assert align_of[AnyCoroutine]() > _RESERVED
             var address = UInt64(rebind[OpaquePointer[MutUntrackedOrigin]](hdl))
-            self._shared[]._state = address | (
-                self._shared[]._state & _RESERVED
-            )
+            var state = self._state._mut()
+            state[] = address | (state[] & _RESERVED)
             body(hdl)
 
         _suspend_async[async_body]()
 
-        self._shared[]._state &= _RESERVED
+        self._state._mut()[] &= _RESERVED

@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from ._context import CancellationToken, Context
+from ._context import Context
 from ._params import Params
 from ._uring import Uring
