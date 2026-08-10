@@ -47,7 +47,7 @@ struct Context(Defaultable, Movable):
         if self._canceled():
             raise _Canceled()
         if self._state & ~_RESERVED:
-            abort(String(Error("re-suspended")))
+            abort("re-suspended")
 
         @parameter
         def async_body(hdl: AnyCoroutine) capturing:

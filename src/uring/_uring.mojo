@@ -142,7 +142,7 @@ struct Uring(Movable):
             CompilationTarget.unsupported_target_error()
 
         if result <= 0:
-            abort(String(Error("submission failed")))
+            abort("submission failed")
         self._sq._head += UInt32(result)
 
     @always_inline
