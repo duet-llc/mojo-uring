@@ -9,7 +9,7 @@ from std.os import abort
 from std.sys import inlined_assembly
 from std.sys.info import CompilationTarget, align_of, is_triple, size_of
 
-from ._context import Context
+from ._context import CancellationToken
 from ._cq import _CompletionQueue, _CompletionQueueEntry
 from ._fd import _FileDescriptor
 from ._mmap import _Mmap
@@ -153,7 +153,7 @@ struct Uring(Movable):
         //,
         submit: def(mut _SubmissionQueueEntry) capturing -> None,
         complete: def(_CompletionQueueEntry) capturing raises ErrNo -> T,
-    ](mut self, mut ctx: Context) raises ErrNo -> T:
+    ](mut self, ctx: CancellationToken) raises ErrNo -> T:
         @parameter
         def submission(hdl: AnyCoroutine) capturing:
             if self._sq._tail - self._sq._head > self._sq._mask:
@@ -215,7 +215,7 @@ struct Uring(Movable):
             self._cq._head += 1
 
     @always_inline
-    async def nop(mut self, mut ctx: Context) raises ErrNo:
+    async def nop(mut self, ctx: CancellationToken) raises ErrNo:
         @parameter
         def submit(mut sqe: _SubmissionQueueEntry) capturing:
             sqe._opcode = _IORING_OP_NOP

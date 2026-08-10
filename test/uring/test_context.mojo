@@ -12,7 +12,7 @@ from std.testing import (
 from uring import Context
 
 
-def _cancel(mut ctx: Context) raises:
+def _cancel(ctx: Context) raises:
     try:
         ctx.cancel()
     except:
@@ -35,6 +35,13 @@ def test_context_cancel_twice() raises:
     _cancel(ctx)
     with assert_raises(contains="_Canceled"):
         _cancel(ctx)
+
+
+def test_context_copy_shares_cancelation() raises:
+    var ctx = Context()
+    var copy = ctx.copy()
+    _cancel(copy)
+    assert_true(ctx.canceled())
 
 
 def main() raises:
