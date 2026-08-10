@@ -153,7 +153,7 @@ struct Uring(Movable):
         //,
         submit: def(mut _SubmissionQueueEntry) capturing -> None,
         complete: def(_CompletionQueueEntry) capturing raises ErrNo -> T,
-    ](mut self, ctx: Context) raises ErrNo -> T:
+    ](mut self, ref ctx: Context) raises ErrNo -> T:
         @parameter
         def submission(hdl: AnyCoroutine) capturing:
             if self._sq._tail - self._sq._head > self._sq._mask:
@@ -215,7 +215,7 @@ struct Uring(Movable):
             self._cq._head += 1
 
     @always_inline
-    async def nop(mut self, ctx: Context) raises ErrNo:
+    async def nop(mut self, ref ctx: Context) raises ErrNo:
         @parameter
         def submit(mut sqe: _SubmissionQueueEntry) capturing:
             sqe._opcode = _IORING_OP_NOP
