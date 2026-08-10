@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from std.builtin.coroutine import AnyCoroutine, _coro_resume_fn, _suspend_async
-from std.os import abort
 from std.sys.info import align_of
 
 
@@ -14,11 +13,6 @@ comptime _RESERVED = _CANCELED
 @fieldwise_init
 struct _Canceled:
     pass
-
-
-@no_inline
-def _abort_resuspended():
-    abort("re-suspended")
 
 
 struct Context(Defaultable, Movable):
@@ -51,8 +45,7 @@ struct Context(Defaultable, Movable):
     ](mut self) raises _Canceled:
         if self.canceled():
             raise _Canceled()
-        if self._state & ~_RESERVED:
-            _abort_resuspended()
+        debug_assert[assert_mode="safe"]((self._state & ~_RESERVED) == 0)
 
         @parameter
         def async_body(hdl: AnyCoroutine) capturing:

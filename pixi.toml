@@ -11,8 +11,8 @@ license = "Apache-2.0"
 repository = "https://github.com/duet-llc/mojo-uring"
 channels = ["https://conda.modular.com/max-nightly/", "conda-forge"]
 platforms = [
-    { platform = "linux-64", linux = "5.1" },
-    { platform = "linux-aarch64", linux = "5.1" },
+    { platform = "linux-64", linux = "5.5" },
+    { platform = "linux-aarch64", linux = "5.5" },
 ]
 
 [dependencies]
