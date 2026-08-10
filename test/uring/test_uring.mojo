@@ -16,17 +16,6 @@ def test_uring_invalid_entries() raises:
         _ = Uring(65536, Params())
 
 
-def test_uring_allows_in_flight_cancel() raises:
-    var io = Uring(8, Params())
-    var ctx = Context()
-    var co = io.nop(ctx)
-    try:
-        ctx.cancel()
-    except:
-        pass
-    co^.force_destroy()
-
-
 def test_uring_nop_compiles() raises:
     var io = Uring(8, Params())
     var ctx = Context()

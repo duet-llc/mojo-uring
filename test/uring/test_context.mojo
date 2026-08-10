@@ -12,7 +12,7 @@ from std.testing import (
 from uring import Context
 
 
-def _cancel(ref ctx: Context) raises:
+def _cancel(mut ctx: Context) raises:
     try:
         ctx.cancel()
     except:
