@@ -20,7 +20,7 @@ def test_uring_nop_compiles() raises:
     var io = Uring(8, Params())
     var ctx = Context()
     var co = io.nop(ctx)
-    co^.force_destroy()
+    co^._unsafe_force_deinit()
 
 
 def main() raises:

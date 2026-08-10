@@ -12,7 +12,7 @@ comptime _MAP_SHARED_POPULATE = 0x8001
 
 
 struct _Mmap(Movable):
-    var _address: UnsafePointer[UInt8, MutUntrackedOrigin]
+    var _address: Pointer[UInt8, MutUntrackedOrigin]
     var _length: c_size_t
 
     def __init__(
@@ -20,8 +20,8 @@ struct _Mmap(Movable):
     ) raises:
         var address = external_call[
             "mmap",
-            UnsafePointer[UInt8, MutUntrackedOrigin],
-            Optional[UnsafePointer[UInt8, MutUntrackedOrigin]],
+            Pointer[UInt8, MutUntrackedOrigin],
+            Optional[Pointer[UInt8, MutUntrackedOrigin]],
             c_size_t,
             c_int,
             c_int,
@@ -40,7 +40,7 @@ struct _Mmap(Movable):
         self._address = address
         self._length = length
 
-    def __del__(deinit self):
+    def __deinit__(deinit self):
         _ = external_call[
-            "munmap", c_int, UnsafePointer[UInt8, MutUntrackedOrigin], c_size_t
+            "munmap", c_int, Pointer[UInt8, MutUntrackedOrigin], c_size_t
         ](self._address, self._length)

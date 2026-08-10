@@ -6,6 +6,8 @@ from std.builtin.coroutine import AnyCoroutine, _coro_resume_fn, _suspend_async
 from std.os import abort
 from std.sys.info import align_of
 
+from ._coroutine import _coro_from_addr, _coro_to_addr
+
 
 comptime _CANCELED = 0x1
 comptime _RESERVED = _CANCELED
@@ -29,13 +31,7 @@ struct Context(Defaultable, Movable):
         self._state |= _CANCELED
         var address = self._state & ~_RESERVED
         if address:
-            _coro_resume_fn(
-                rebind[AnyCoroutine](
-                    OpaquePointer[MutUntrackedOrigin](
-                        unsafe_from_address=Int(address)
-                    )
-                )
-            )
+            _coro_resume_fn(_coro_from_addr(Int(address)))
 
     def _canceled(self) -> Bool:
         return Bool(self._state & _RESERVED)
@@ -52,7 +48,7 @@ struct Context(Defaultable, Movable):
         @parameter
         def async_body(hdl: AnyCoroutine) capturing:
             comptime assert align_of[AnyCoroutine]() > _RESERVED
-            var address = UInt64(rebind[OpaquePointer[MutUntrackedOrigin]](hdl))
+            var address = UInt64(_coro_to_addr(hdl))
             self._state = address | (self._state & _RESERVED)
             body(hdl)
 

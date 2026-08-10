@@ -9,5 +9,5 @@ from std.ffi import c_int, external_call
 struct _FileDescriptor(Movable):
     var _value: c_int
 
-    def __del__(deinit self):
+    def __deinit__(deinit self):
         _ = external_call["close", c_int, c_int](self._value)
