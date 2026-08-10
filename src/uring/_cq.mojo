@@ -14,7 +14,7 @@ struct _CompletionQueueEntry:
 
 
 struct _CompletionQueue(Movable):
-    var _cqes: UnsafePointer[_CompletionQueueEntry, ImmUntrackedOrigin]
+    var _cqes: Pointer[_CompletionQueueEntry, ImmUntrackedOrigin]
     var _mask: UInt32
     var _cq_mmap: _Mmap
     var _head: UInt32
@@ -23,12 +23,14 @@ struct _CompletionQueue(Movable):
         out self, var cq_mmap: _Mmap, offsets: _CompletionQueueRingOffsets
     ):
         self._cqes = (
-            (cq_mmap._address + offsets._cqes)
+            cq_mmap._address.unsafe_offset(offsets._cqes)
             .as_imm()
-            .bitcast[_CompletionQueueEntry]()
+            .unsafe_bitcast[_CompletionQueueEntry]()
         )
         var ring_mask = Pointer[UInt32, ImmUntrackedOrigin](
-            unsafe_from_address=Int(cq_mmap._address + offsets._ring_mask)
+            unsafe_from_address=Int(
+                cq_mmap._address.unsafe_offset(offsets._ring_mask)
+            )
         )
         self._mask = ring_mask[]
         self._cq_mmap = cq_mmap^

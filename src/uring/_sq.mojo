@@ -42,7 +42,7 @@ struct _SubmissionQueueEntry:
 
 struct _SubmissionQueue(Movable):
     var _ktail: Pointer[Atomic[DType.uint32], MutUntrackedOrigin]
-    var _sqes: UnsafePointer[_SubmissionQueueEntry, MutUntrackedOrigin]
+    var _sqes: Pointer[_SubmissionQueueEntry, MutUntrackedOrigin]
     var _mask: UInt32
     var _sq_mmap: _Mmap
     var _sqes_mmap: _Mmap
@@ -56,16 +56,22 @@ struct _SubmissionQueue(Movable):
         offsets: _SubmissionQueueRingOffsets,
     ):
         self._ktail = Pointer[Atomic[DType.uint32], MutUntrackedOrigin](
-            unsafe_from_address=Int(sq_mmap._address + offsets._tail)
+            unsafe_from_address=Int(
+                sq_mmap._address.unsafe_offset(offsets._tail)
+            )
         )
-        var array = (sq_mmap._address + offsets._array).bitcast[UInt32]()
-        self._sqes = sqes_mmap._address.bitcast[_SubmissionQueueEntry]()
+        var array = sq_mmap._address.unsafe_offset(
+            offsets._array
+        ).unsafe_bitcast[UInt32]()
+        self._sqes = sqes_mmap._address.unsafe_bitcast[_SubmissionQueueEntry]()
         var ring_mask = Pointer[UInt32, ImmUntrackedOrigin](
-            unsafe_from_address=Int(sq_mmap._address + offsets._ring_mask)
+            unsafe_from_address=Int(
+                sq_mmap._address.unsafe_offset(offsets._ring_mask)
+            )
         )
         self._mask = ring_mask[]
         for index in range(self._mask + 1):
-            array[index] = index
+            array[unsafe_offset=index] = index
         self._sq_mmap = sq_mmap^
         self._sqes_mmap = sqes_mmap^
         self._head = 0

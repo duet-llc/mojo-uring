@@ -10,6 +10,7 @@ from std.sys import inlined_assembly
 from std.sys.info import CompilationTarget, align_of, is_triple, size_of
 
 from ._context import Context
+from ._coroutine import _coro_to_addr
 from ._cq import _CompletionQueue, _CompletionQueueEntry
 from ._fd import _FileDescriptor
 from ._mmap import _Mmap
@@ -157,12 +158,12 @@ struct Uring(Movable):
             if self._sq._tail - self._sq._head > self._sq._mask:
                 self._submit()
 
-            ref sqe = self._sq._sqes[self._sq._tail & self._sq._mask]
+            ref sqe = self._sq._sqes[
+                unsafe_offset=self._sq._tail & self._sq._mask
+            ]
             sqe = _SubmissionQueueEntry()
             submit(sqe)
-            sqe._user_data = UInt64(
-                rebind[OpaquePointer[ImmUntrackedOrigin]](hdl)
-            )
+            sqe._user_data = UInt64(_coro_to_addr(hdl))
             self._sq._tail += 1
 
         var not_canceled: Bool
@@ -172,7 +173,9 @@ struct Uring(Movable):
             raise ErrNo(_ECANCELED)
 
         if not_canceled:
-            ref cqe = self._cq._cqes[self._cq._head & self._cq._mask]
+            ref cqe = self._cq._cqes[
+                unsafe_offset=self._cq._head & self._cq._mask
+            ]
             try:
                 return complete(cqe)
             finally:
@@ -184,8 +187,10 @@ struct Uring(Movable):
             if self._sq._tail - self._sq._head > self._sq._mask:
                 self._submit()
 
-            var address = UInt64(rebind[OpaquePointer[ImmUntrackedOrigin]](hdl))
-            ref sqe = self._sq._sqes[self._sq._tail & self._sq._mask]
+            var address = UInt64(_coro_to_addr(hdl))
+            ref sqe = self._sq._sqes[
+                unsafe_offset=self._sq._tail & self._sq._mask
+            ]
             sqe = _SubmissionQueueEntry()
             sqe._opcode = _IORING_OP_ASYNC_CANCEL
             sqe._addr = address
@@ -194,7 +199,7 @@ struct Uring(Movable):
 
         _suspend_async[cancelation]()
 
-        ref cqe = self._cq._cqes[self._cq._head & self._cq._mask]
+        ref cqe = self._cq._cqes[unsafe_offset=self._cq._head & self._cq._mask]
         if cqe._user_data & _RESERVED == 0:
             try:
                 return complete(cqe)
@@ -207,7 +212,7 @@ struct Uring(Movable):
         self._cq._head += 1
         _suspend_async[lambda (hdl: AnyCoroutine) capturing: None]()
 
-        ref cqe_ = self._cq._cqes[self._cq._head & self._cq._mask]
+        ref cqe_ = self._cq._cqes[unsafe_offset=self._cq._head & self._cq._mask]
         try:
             return complete(cqe_)
         finally:
