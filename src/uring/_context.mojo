@@ -21,8 +21,8 @@ struct Context(Defaultable, Movable):
     def __init__(out self):
         self._state = 0
 
-    def cancel(mut self) raises _Canceled:
-        if self.canceled():
+    def _cancel(mut self) raises _Canceled:
+        if self._canceled():
             raise _Canceled()
 
         self._state |= _CANCELED
@@ -36,14 +36,14 @@ struct Context(Defaultable, Movable):
                 )
             )
 
-    def canceled(self) -> Bool:
+    def _canceled(self) -> Bool:
         return Bool(self._state & _RESERVED)
 
     @always_inline
     def _suspend[
         body: def(AnyCoroutine) capturing -> None,
-    ](mut self) raises _Canceled:
-        if self.canceled():
+    ](mut self) raises _Canceled -> Bool:
+        if self._canceled():
             raise _Canceled()
         debug_assert[assert_mode="safe"](self._state & ~_RESERVED == 0)
 
@@ -57,3 +57,4 @@ struct Context(Defaultable, Movable):
         _suspend_async[async_body]()
 
         self._state &= _RESERVED
+        return not self._canceled()

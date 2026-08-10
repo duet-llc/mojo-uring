@@ -14,20 +14,20 @@ from uring import Context
 
 def _cancel(mut ctx: Context) raises:
     try:
-        ctx.cancel()
+        ctx._cancel()
     except:
         raise Error("_Canceled")
 
 
 def test_context_default() raises:
     var ctx = Context()
-    assert_false(ctx.canceled())
+    assert_false(ctx._canceled())
 
 
 def test_context_cancel() raises:
     var ctx = Context()
     _cancel(ctx)
-    assert_true(ctx.canceled())
+    assert_true(ctx._canceled())
 
 
 def test_context_cancel_twice() raises:

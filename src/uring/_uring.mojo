@@ -163,12 +163,13 @@ struct Uring(Movable):
             )
             self._sq._tail += 1
 
+        var not_canceled: Bool
         try:
-            ctx._suspend[submission]()
+            not_canceled = ctx._suspend[submission]()
         except:
             raise ErrNo(_ECANCELED)
 
-        if not ctx.canceled():
+        if not_canceled:
             ref cqe = self._cq._cqes[self._cq._head & self._cq._mask]
             try:
                 return complete(cqe)
