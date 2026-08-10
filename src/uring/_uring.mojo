@@ -5,7 +5,6 @@
 from std.atomic import Ordering
 from std.builtin.coroutine import AnyCoroutine, _suspend_async
 from std.ffi import ErrNo, c_int, c_long, c_size_t
-from std.os import abort
 from std.sys import inlined_assembly
 from std.sys.info import CompilationTarget, align_of, is_triple, size_of
 
@@ -141,10 +140,7 @@ struct Uring(Movable):
         else:
             CompilationTarget.unsupported_target_error()
 
-        if result == 0:
-            abort("io_uring submission made no progress")
-        elif result < 0:
-            abort(String(ErrNo(c_int(-result))))
+        debug_assert[assert_mode="safe"](result > 0)
         self._sq._head += UInt32(result)
 
     @always_inline
