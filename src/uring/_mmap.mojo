@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from std.ffi import c_int, c_long, c_size_t, external_call, get_errno
+from std.ffi import ErrNo, c_int, c_long, c_size_t, external_call, get_errno
 
 from ._fd import _FileDescriptor
 
@@ -17,7 +17,7 @@ struct _Mmap(Movable):
 
     def __init__(
         out self, length: c_size_t, fd: _FileDescriptor, offset: c_long
-    ) raises:
+    ) raises ErrNo:
         var address = external_call[
             "mmap",
             Pointer[UInt8, MutUntrackedOrigin],
