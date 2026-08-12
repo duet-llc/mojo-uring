@@ -2,11 +2,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from std.builtin.coroutine import AnyCoroutine, _coro_resume_fn, _suspend_async
+from std.builtin.coroutine import AnyCoroutine, _coro_resume_fn
 from std.os import abort
 from std.sys.info import align_of
 
-from ._coroutine import _coro_from_addr, _coro_to_addr
+from ._coroutine import _coro_from_addr, _coro_to_addr, _suspend_async
 
 
 comptime _CANCELED = 0x1
@@ -38,21 +38,20 @@ struct Context(Defaultable, Movable):
 
     @always_inline
     def _suspend[
-        body: def(AnyCoroutine) capturing -> None,
-    ](mut self) raises _Canceled -> Bool:
+        Body: def(AnyCoroutine) -> None,
+    ](mut self, body: Body) raises _Canceled -> Bool:
         if self._canceled():
             raise _Canceled()
         if self._state & ~_RESERVED:
             abort("re-suspended")
 
-        @parameter
-        def async_body(hdl: AnyCoroutine) capturing:
+        def async_body(hdl: AnyCoroutine) {mut self, body}:
             comptime assert align_of[AnyCoroutine]() > _RESERVED
             var address = UInt64(_coro_to_addr(hdl))
             self._state = address | (self._state & _RESERVED)
             body(hdl)
 
-        _suspend_async[async_body]()
+        _suspend_async(async_body)
 
         self._state &= _RESERVED
         return not self._canceled()

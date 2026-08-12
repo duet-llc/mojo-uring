@@ -3,14 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from std.atomic import Ordering
-from std.builtin.coroutine import AnyCoroutine, _suspend_async
+from std.builtin.coroutine import AnyCoroutine
 from std.ffi import ErrNo, c_int, c_long, c_size_t
 from std.os import abort
 from std.sys import inlined_assembly
 from std.sys.info import CompilationTarget, align_of, is_triple, size_of
 
 from ._context import Context
-from ._coroutine import _coro_to_addr
+from ._coroutine import _coro_to_addr, _suspend_async
 from ._cq import _CompletionQueue, _CompletionQueueEntry
 from ._fd import _FileDescriptor
 from ._mmap import _Mmap
@@ -37,7 +37,7 @@ struct Uring(Movable):
     var _cq: _CompletionQueue
     var _fd: _FileDescriptor
 
-    def __init__(out self, entries: UInt32, var params: Params) raises:
+    def __init__(out self, entries: UInt32, var params: Params) raises ErrNo:
         var result: c_long
 
         comptime if is_triple["x86_64-unknown-linux-gnu"]():
@@ -149,12 +149,15 @@ struct Uring(Movable):
     @always_inline
     def _schedule[
         T: AnyType,
-        //,
-        submit: def(mut _SubmissionQueueEntry) capturing -> None,
-        complete: def(_CompletionQueueEntry) capturing raises ErrNo -> T,
-    ](mut self, mut ctx: Context) raises ErrNo -> T:
-        @parameter
-        def submission(hdl: AnyCoroutine) capturing:
+        Submit: def(mut _SubmissionQueueEntry) -> None,
+        Complete: def(_CompletionQueueEntry) raises ErrNo -> T,
+    ](
+        mut self,
+        mut ctx: Context,
+        submit: Submit,
+        complete: Complete,
+    ) raises ErrNo -> T:
+        def submission(hdl: AnyCoroutine) {mut self, submit}:
             if self._sq._tail - self._sq._head > self._sq._mask:
                 self._submit()
 
@@ -168,7 +171,7 @@ struct Uring(Movable):
 
         var not_canceled: Bool
         try:
-            not_canceled = ctx._suspend[submission]()
+            not_canceled = ctx._suspend(submission)
         except:
             raise ErrNo(_ECANCELED)
 
@@ -181,8 +184,7 @@ struct Uring(Movable):
             finally:
                 self._cq._head += 1
 
-        @parameter
-        def cancelation(hdl: AnyCoroutine) capturing:
+        def cancelation(hdl: AnyCoroutine) {mut self}:
             comptime assert align_of[AnyCoroutine]() > _RESERVED
             if self._sq._tail - self._sq._head > self._sq._mask:
                 self._submit()
@@ -197,7 +199,7 @@ struct Uring(Movable):
             sqe._user_data = address | _CANCELED
             self._sq._tail += 1
 
-        _suspend_async[cancelation]()
+        _suspend_async(cancelation)
 
         ref cqe = self._cq._cqes[unsafe_offset=self._cq._head & self._cq._mask]
         if cqe._user_data & _RESERVED == 0:
@@ -205,12 +207,12 @@ struct Uring(Movable):
                 return complete(cqe)
             finally:
                 self._cq._head += 1
-                _suspend_async[lambda (hdl: AnyCoroutine) capturing: None]()
+                _suspend_async(lambda (hdl: AnyCoroutine) {}: None)
 
                 self._cq._head += 1
 
         self._cq._head += 1
-        _suspend_async[lambda (hdl: AnyCoroutine) capturing: None]()
+        _suspend_async(lambda (hdl: AnyCoroutine) {}: None)
 
         ref cqe_ = self._cq._cqes[unsafe_offset=self._cq._head & self._cq._mask]
         try:
@@ -220,13 +222,11 @@ struct Uring(Movable):
 
     @always_inline
     async def nop(mut self, mut ctx: Context) raises ErrNo:
-        @parameter
-        def submit(mut sqe: _SubmissionQueueEntry) capturing:
+        def submit(mut sqe: _SubmissionQueueEntry) {}:
             sqe._opcode = _IORING_OP_NOP
 
-        @parameter
-        def complete(cqe: _CompletionQueueEntry) capturing raises ErrNo:
+        def complete(cqe: _CompletionQueueEntry) raises ErrNo {}:
             if cqe._res < 0:
                 raise ErrNo(-cqe._res)
 
-        return self._schedule[submit, complete](ctx)
+        return self._schedule(ctx, submit, complete)
