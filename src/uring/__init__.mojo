@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from ._context import Context
+from ._context import Cancelable, CancelableContext, Canceled, Context
 from ._params import Params
 from ._uring import Uring
