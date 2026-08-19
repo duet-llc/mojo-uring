@@ -8,7 +8,7 @@ from std.ffi import ErrNo, c_int, c_long, c_size_t
 from std.sys import inlined_assembly
 from std.sys.info import CompilationTarget, is_triple, size_of
 
-from ._context import Cancelable
+from ._context import Context
 from ._coroutine import _coro_to_addr, _suspend_async
 from ._cq import _CompletionQueue, _CompletionQueueEntry
 from ._fd import _FileDescriptor
@@ -146,12 +146,12 @@ struct Uring(Movable):
     @always_inline
     def _schedule[
         T: AnyType,
-        C: AnyType,
+        cancelable: Bool,
         Submit: def(mut _SubmissionQueueEntry) -> None,
         Complete: def(_CompletionQueueEntry) raises ErrNo -> T,
     ](
         mut self,
-        mut ctx: C,
+        mut ctx: Context[cancelable],
         submit: Submit,
         complete: Complete,
     ) raises ErrNo -> T:
@@ -167,7 +167,7 @@ struct Uring(Movable):
             sqe._user_data = UInt64(_coro_to_addr(hdl))
             self._sq._tail += 1
 
-        comptime if conforms_to(C, Cancelable):
+        comptime if cancelable:
             try:
                 if not ctx._cancelable_suspend_async(submission):
 
@@ -197,7 +197,9 @@ struct Uring(Movable):
             self._cq._head += 1
 
     @always_inline
-    async def nop[C: AnyType](mut self, mut ctx: C) raises ErrNo:
+    async def nop[
+        cancelable: Bool
+    ](mut self, mut ctx: Context[cancelable]) raises ErrNo:
         def submit(mut sqe: _SubmissionQueueEntry) {}:
             sqe._opcode = _IORING_OP_NOP
 

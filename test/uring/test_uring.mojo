@@ -4,8 +4,7 @@
 
 from std.testing import TestSuite, assert_raises
 
-from uring import Params, Uring
-from uring._context import _CancelableContext, _Context
+from uring import Context, Params, Uring
 
 
 def test_uring_success() raises:
@@ -19,14 +18,14 @@ def test_uring_invalid_entries() raises:
 
 def test_uring_nop_without_cancelation_compiles() raises:
     var io = Uring(8, Params())
-    var ctx = _Context()
+    var ctx = Context()
     var co = io.nop(ctx)
     co^._unsafe_force_deinit()
 
 
 def test_uring_nop_with_cancelation_compiles() raises:
     var io = Uring(8, Params())
-    var ctx = _CancelableContext()
+    var ctx = Context[True]()
     var co = io.nop(ctx)
     co^._unsafe_force_deinit()
 

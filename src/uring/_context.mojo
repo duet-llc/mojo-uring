@@ -17,25 +17,13 @@ struct _Canceled:
     pass
 
 
-trait Cancelable:
-    def _cancelable_suspend_async[
-        Body: def(AnyCoroutine) -> None,
-    ](mut self, body: Body) raises _Canceled -> Bool:
-        ...
-
-
-@fieldwise_init
-struct _Context(Defaultable, Movable):
-    pass
-
-
-struct _CancelableContext(Cancelable, Defaultable, Movable):
+struct Context[cancelable: Bool = False](Defaultable, Movable):
     var _state: UInt64
 
     def __init__(out self):
         self._state = 0
 
-    def _cancel(mut self) raises _Canceled:
+    def _cancel(mut self) raises _Canceled where Self.cancelable:
         if self._canceled():
             raise _Canceled()
 
@@ -44,13 +32,13 @@ struct _CancelableContext(Cancelable, Defaultable, Movable):
         if address:
             _coro_resume_fn(_coro_from_addr(Int(address)))
 
-    def _canceled(self) -> Bool:
+    def _canceled(self) -> Bool where Self.cancelable:
         return Bool(self._state & _CANCELED)
 
     @always_inline
     def _cancelable_suspend_async[
         Body: def(AnyCoroutine) -> None,
-    ](mut self, body: Body) raises _Canceled -> Bool:
+    ](mut self, body: Body) raises _Canceled -> Bool where Self.cancelable:
         if self._canceled():
             raise _Canceled()
         debug_assert["safe"](not (self._state & ~_RESERVED), "re-suspended")
