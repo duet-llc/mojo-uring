@@ -146,17 +146,16 @@ struct Uring(Movable):
     @always_inline
     def _schedule[
         T: AnyType,
-        context_cancelable: Bool,
+        cancelable: Bool,
+        //,
         Submit: def(mut _SubmissionQueueEntry) -> None,
         Complete: def(_CompletionQueueEntry) raises ErrNo -> T,
-        *,
-        cancelable: Bool = context_cancelable,
     ](
         mut self,
-        mut ctx: Context[cancelable=context_cancelable],
+        mut ctx: Context[cancelable=cancelable],
         submit: Submit,
         complete: Complete,
-    ) raises ErrNo -> T where (not cancelable or context_cancelable):
+    ) raises ErrNo -> T:
         def submission(hdl: AnyCoroutine) {mut self, submit}:
             if self._sq._tail - self._sq._head > self._sq._mask:
                 self._submit()
@@ -169,7 +168,7 @@ struct Uring(Movable):
             sqe._user_data = UInt64(_coro_to_addr(hdl))
             self._sq._tail += 1
 
-        comptime if cancelable and context_cancelable:
+        comptime if cancelable:
             try:
                 if not ctx._cancelable_suspend_async(submission):
 
@@ -200,12 +199,9 @@ struct Uring(Movable):
 
     @always_inline
     async def nop[
-        context_cancelable: Bool,
-        *,
-        cancelable: Bool = context_cancelable,
-    ](
-        mut self, mut ctx: Context[cancelable=context_cancelable]
-    ) raises ErrNo where (not cancelable or context_cancelable):
+        cancelable: Bool,
+        //,
+    ](mut self, mut ctx: Context[cancelable=cancelable]) raises ErrNo:
         def submit(mut sqe: _SubmissionQueueEntry) {}:
             sqe._opcode = _IORING_OP_NOP
 
@@ -213,4 +209,4 @@ struct Uring(Movable):
             if cqe._res < 0:
                 raise ErrNo(-cqe._res)
 
-        return self._schedule[cancelable=cancelable](ctx, submit, complete)
+        return self._schedule(ctx, submit, complete)

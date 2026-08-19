@@ -30,12 +30,5 @@ def test_uring_nop_with_cancelation_compiles() raises:
     co^._unsafe_force_deinit()
 
 
-def test_uring_nop_opts_out_of_cancelation_compiles() raises:
-    var io = Uring(8, Params())
-    var ctx = Context[cancelable=True]()
-    var co = io.nop[cancelable=False](ctx)
-    co^._unsafe_force_deinit()
-
-
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run(quiet=True)
