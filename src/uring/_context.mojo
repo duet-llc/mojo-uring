@@ -18,9 +18,6 @@ struct _Canceled:
 
 
 trait Cancelable:
-    def _cancel(mut self) raises _Canceled:
-        ...
-
     def _cancelable_suspend_async[
         Body: def(AnyCoroutine) -> None,
     ](mut self, body: Body) raises _Canceled -> Bool:
@@ -28,11 +25,11 @@ trait Cancelable:
 
 
 @fieldwise_init
-struct Context(Defaultable, Movable):
+struct _Context(Defaultable, Movable):
     pass
 
 
-struct CancelableContext(Cancelable, Defaultable, Movable):
+struct _CancelableContext(Cancelable, Defaultable, Movable):
     var _state: UInt64
 
     def __init__(out self):
