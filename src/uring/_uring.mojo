@@ -155,7 +155,6 @@ struct Uring(Movable):
         submit: Submit,
         complete: Complete,
     ) raises ErrNo -> T:
-        @always_inline
         def submission(hdl: AnyCoroutine) {mut self, submit}:
             if self._sq._tail - self._sq._head > self._sq._mask:
                 self._submit()
@@ -172,7 +171,6 @@ struct Uring(Movable):
             try:
                 if not ctx._cancelable_suspend_async(submission):
 
-                    @always_inline
                     def cancelation(hdl: AnyCoroutine) {mut self}:
                         if self._sq._tail - self._sq._head > self._sq._mask:
                             self._submit()
