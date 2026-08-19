@@ -13,17 +13,17 @@ comptime _RESERVED = _CANCELED
 
 
 @fieldwise_init
-struct Canceled:
+struct _Canceled:
     pass
 
 
 trait Cancelable:
-    def cancel(mut self) raises Canceled:
+    def _cancel(mut self) raises _Canceled:
         ...
 
     def _cancelable_suspend_async[
         Body: def(AnyCoroutine) -> None,
-    ](mut self, body: Body) raises Canceled -> Bool:
+    ](mut self, body: Body) raises _Canceled -> Bool:
         ...
 
 
@@ -38,9 +38,9 @@ struct CancelableContext(Cancelable, Defaultable, Movable):
     def __init__(out self):
         self._state = 0
 
-    def cancel(mut self) raises Canceled:
+    def _cancel(mut self) raises _Canceled:
         if self._canceled():
-            raise Canceled()
+            raise _Canceled()
 
         self._state |= _CANCELED
         var address = self._state & ~_RESERVED
@@ -53,10 +53,10 @@ struct CancelableContext(Cancelable, Defaultable, Movable):
     @always_inline
     def _cancelable_suspend_async[
         Body: def(AnyCoroutine) -> None,
-    ](mut self, body: Body) raises Canceled -> Bool:
+    ](mut self, body: Body) raises _Canceled -> Bool:
         if self._canceled():
-            raise Canceled()
-        debug_assert(not (self._state & ~_RESERVED), "re-suspended")
+            raise _Canceled()
+        debug_assert["safe"](not (self._state & ~_RESERVED), "re-suspended")
 
         def async_body(hdl: AnyCoroutine) {mut self, body}:
             comptime assert align_of[AnyCoroutine]() > _RESERVED

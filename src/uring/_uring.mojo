@@ -5,7 +5,6 @@
 from std.atomic import Ordering
 from std.builtin.coroutine import AnyCoroutine
 from std.ffi import ErrNo, c_int, c_long, c_size_t
-from std.os import abort
 from std.sys import inlined_assembly
 from std.sys.info import CompilationTarget, is_triple, size_of
 
@@ -141,8 +140,7 @@ struct Uring(Movable):
         else:
             CompilationTarget.unsupported_target_error()
 
-        if result <= 0:
-            abort("submission failed")
+        debug_assert["safe"](result > 0, "submission failed")
         self._sq._head += UInt32(result)
 
     @always_inline
@@ -157,6 +155,7 @@ struct Uring(Movable):
         submit: Submit,
         complete: Complete,
     ) raises ErrNo -> T:
+        @always_inline
         def submission(hdl: AnyCoroutine) {mut self, submit}:
             if self._sq._tail - self._sq._head > self._sq._mask:
                 self._submit()
@@ -173,7 +172,8 @@ struct Uring(Movable):
             try:
                 if not ctx._cancelable_suspend_async(submission):
 
-                    def cancellation(hdl: AnyCoroutine) {mut self}:
+                    @always_inline
+                    def cancelation(hdl: AnyCoroutine) {mut self}:
                         if self._sq._tail - self._sq._head > self._sq._mask:
                             self._submit()
 
@@ -186,7 +186,7 @@ struct Uring(Movable):
                         sqe._addr = UInt64(_coro_to_addr(hdl))
                         self._sq._tail += 1
 
-                    _suspend_async(cancellation)
+                    _suspend_async(cancelation)
             except:
                 raise ErrNo(_ECANCELED)
         else:
