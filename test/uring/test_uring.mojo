@@ -25,8 +25,15 @@ def test_uring_nop_without_cancelation_compiles() raises:
 
 def test_uring_nop_with_cancelation_compiles() raises:
     var io = Uring(8, Params())
-    var ctx = Context[True]()
+    var ctx = Context[cancelable=True]()
     var co = io.nop(ctx)
+    co^._unsafe_force_deinit()
+
+
+def test_uring_nop_opts_out_of_cancelation_compiles() raises:
+    var io = Uring(8, Params())
+    var ctx = Context[cancelable=True]()
+    var co = io.nop[cancelable=False](ctx)
     co^._unsafe_force_deinit()
 
 

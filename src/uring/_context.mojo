@@ -17,7 +17,7 @@ struct _Canceled:
     pass
 
 
-struct Context[cancelable: Bool = False](Defaultable, Movable):
+struct Context[*, cancelable: Bool = False](Defaultable, Movable):
     var _state: UInt64
 
     def __init__(out self):
