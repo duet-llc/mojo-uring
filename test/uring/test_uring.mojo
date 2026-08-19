@@ -16,9 +16,16 @@ def test_uring_invalid_entries() raises:
         _ = Uring(65536, Params())
 
 
-def test_uring_nop_compiles() raises:
+def test_uring_nop_without_cancelation_compiles() raises:
     var io = Uring(8, Params())
     var ctx = Context()
+    var co = io.nop(ctx)
+    co^._unsafe_force_deinit()
+
+
+def test_uring_nop_with_cancelation_compiles() raises:
+    var io = Uring(8, Params())
+    var ctx = Context[cancelable=True]()
     var co = io.nop(ctx)
     co^._unsafe_force_deinit()
 
