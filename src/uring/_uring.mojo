@@ -170,35 +170,25 @@ struct Uring(Movable):
             self._sq._tail += 1
 
         comptime if conforms_to(C, Cancelable):
-            var not_canceled: Bool
             try:
-                not_canceled = ctx._cancelable_suspend_async(submission)
+                if not ctx._cancelable_suspend_async(submission):
+
+                    def cancellation(hdl: AnyCoroutine) {mut self}:
+                        if self._sq._tail - self._sq._head > self._sq._mask:
+                            self._submit()
+
+                        ref sqe = self._sq._sqes[
+                            unsafe_offset=self._sq._tail & self._sq._mask
+                        ]
+                        sqe = _SubmissionQueueEntry()
+                        sqe._opcode = _IORING_OP_ASYNC_CANCEL
+                        sqe._flags = _IOSQE_CQE_SKIP_SUCCESS
+                        sqe._addr = UInt64(_coro_to_addr(hdl))
+                        self._sq._tail += 1
+
+                    _suspend_async(cancellation)
             except:
                 raise ErrNo(_ECANCELED)
-
-            if not_canceled:
-                ref cqe = self._cq._cqes[
-                    unsafe_offset=self._cq._head & self._cq._mask
-                ]
-                try:
-                    return complete(cqe)
-                finally:
-                    self._cq._head += 1
-
-            def cancellation(hdl: AnyCoroutine) {mut self}:
-                if self._sq._tail - self._sq._head > self._sq._mask:
-                    self._submit()
-
-                ref sqe = self._sq._sqes[
-                    unsafe_offset=self._sq._tail & self._sq._mask
-                ]
-                sqe = _SubmissionQueueEntry()
-                sqe._opcode = _IORING_OP_ASYNC_CANCEL
-                sqe._flags = _IOSQE_CQE_SKIP_SUCCESS
-                sqe._addr = UInt64(_coro_to_addr(hdl))
-                self._sq._tail += 1
-
-            _suspend_async(cancellation)
         else:
             _suspend_async(submission)
 

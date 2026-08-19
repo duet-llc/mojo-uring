@@ -39,7 +39,7 @@ struct CancelableContext(Cancelable, Defaultable, Movable):
         self._state = 0
 
     def cancel(mut self) raises Canceled:
-        if self.canceled():
+        if self._canceled():
             raise Canceled()
 
         self._state |= _CANCELED
@@ -47,14 +47,14 @@ struct CancelableContext(Cancelable, Defaultable, Movable):
         if address:
             _coro_resume_fn(_coro_from_addr(Int(address)))
 
-    def canceled(self) -> Bool:
+    def _canceled(self) -> Bool:
         return Bool(self._state & _CANCELED)
 
     @always_inline
     def _cancelable_suspend_async[
         Body: def(AnyCoroutine) -> None,
     ](mut self, body: Body) raises Canceled -> Bool:
-        if self.canceled():
+        if self._canceled():
             raise Canceled()
         debug_assert(not (self._state & ~_RESERVED), "re-suspended")
 
@@ -67,4 +67,4 @@ struct CancelableContext(Cancelable, Defaultable, Movable):
         _suspend_async(async_body)
 
         self._state &= _RESERVED
-        return not self.canceled()
+        return not self._canceled()
