@@ -39,6 +39,8 @@ struct Uring(Movable):
         var result: c_long
 
         comptime if is_triple["x86_64-unknown-linux-gnu"]():
+            # io_uring_setup writes Params, so this is a mutable pointer whose
+            # tracked origin is exactly the caller-owned params field.
             result = inlined_assembly[
                 "syscall",
                 c_long,
@@ -48,6 +50,8 @@ struct Uring(Movable):
                 constraints="={rax},{rax},{rdi},{rsi},~{rcx},~{r11},~{memory}",
             ](_SYS_IO_URING_SETUP, entries, MutPointer(to=params._params))
         elif is_triple["aarch64-unknown-linux-gnu"]():
+            # As above, the kernel mutates Params and the pointer retains the
+            # precise origin of the caller-owned field.
             result = inlined_assembly[
                 "svc #0",
                 c_long,

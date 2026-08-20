@@ -41,7 +41,11 @@ struct _SubmissionQueueEntry:
 
 
 struct _SubmissionQueue(Movable):
+    # Userspace publishes the SQ tail; the mmap-derived origin is untracked but
+    # kept alive by _sq_mmap.
     var _ktail: Pointer[Atomic[UInt32], MutUntrackedOrigin]
+    # SQEs are userspace-written, and their untracked mapping is owned by
+    # _sqes_mmap for the lifetime of this pointer.
     var _sqes: Pointer[_SubmissionQueueEntry, MutUntrackedOrigin]
     var _mask: UInt32
     var _sq_mmap: _Mmap
@@ -60,10 +64,16 @@ struct _SubmissionQueue(Movable):
                 sq_mmap._address.unsafe_offset(offsets._tail)
             )
         )
+        # Userspace initializes the SQ index array, so this mmap-derived,
+        # untracked pointer must remain mutable.
         var array = sq_mmap._address.unsafe_offset(
             offsets._array
         ).unsafe_bitcast[UInt32]()
+        # SQEs are prepared by userspace, requiring a mutable view. Their
+        # untracked origin is bounded by the retained SQE mmap.
         self._sqes = sqes_mmap._address.unsafe_bitcast[_SubmissionQueueEntry]()
+        # The ring mask is kernel-initialized and only read by userspace. The
+        # retained SQ mmap supplies the lifetime behind this immutable view.
         var ring_mask = Pointer[UInt32, ImmUntrackedOrigin](
             unsafe_from_address=Int(
                 sq_mmap._address.unsafe_offset(offsets._ring_mask)
