@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from std.atomic import Atomic
+
 from ._mmap import _Mmap
 from ._params import _CompletionQueueRingOffsets
 
@@ -14,6 +16,8 @@ struct _CompletionQueueEntry:
 
 
 struct _CompletionQueue(Movable):
+    var _khead: Pointer[Atomic[UInt32], MutUntrackedOrigin]
+    var _ktail: Pointer[Atomic[UInt32], MutUntrackedOrigin]
     var _cqes: Pointer[_CompletionQueueEntry, ImmUntrackedOrigin]
     var _mask: UInt32
     var _cq_mmap: _Mmap
@@ -22,6 +26,16 @@ struct _CompletionQueue(Movable):
     def __init__(
         out self, var cq_mmap: _Mmap, offsets: _CompletionQueueRingOffsets
     ):
+        self._khead = Pointer[Atomic[UInt32], MutUntrackedOrigin](
+            unsafe_from_address=Int(
+                cq_mmap._address.unsafe_offset(offsets._head)
+            )
+        )
+        self._ktail = Pointer[Atomic[UInt32], MutUntrackedOrigin](
+            unsafe_from_address=Int(
+                cq_mmap._address.unsafe_offset(offsets._tail)
+            )
+        )
         self._cqes = (
             cq_mmap._address.unsafe_offset(offsets._cqes)
             .as_imm()
