@@ -8,21 +8,19 @@ from std.testing import TestSuite, assert_raises, assert_true
 from uring import Context, Params, Uring
 
 
-def _mark_completed(mut completed: Bool):
-    completed = True
-
-
-struct _CallbackContext(TrivialRegisterPassable):
+struct _CallbackContext[origin: MutOrigin, //](TrivialRegisterPassable):
     comptime Callback = def(mut Bool) thin -> None
 
     var _callback: Self.Callback
-    var _payload: Pointer[Bool, MutUntrackedOrigin]
+    var _payload: Pointer[Bool, Self.origin]
 
-    def __init__(out self, mut completed: Bool):
-        self._callback = _mark_completed
-        self._payload = Pointer[Bool, MutUntrackedOrigin](
-            unsafe_from_address=Int(MutPointer(to=completed))
-        )
+    def __init__(out self, ref[Self.origin] completed: Bool):
+        self._callback = Self._mark_completed
+        self._payload = Pointer(to=completed)
+
+    @staticmethod
+    def _mark_completed(mut completed: Bool):
+        completed = True
 
 
 def test_uring_success() raises:
@@ -46,7 +44,9 @@ def test_uring_nop_completion() raises:
     var ctx = Context()
     var co = io.nop(ctx)
     var completed = False
-    co._get_ctx[_CallbackContext]()[] = _CallbackContext(completed)
+    co._get_ctx[
+        _CallbackContext[origin=origin_of(completed)]
+    ]()[] = _CallbackContext(completed)
     _coro_resume_fn(co._handle)
     io._submit()
     io._complete()
