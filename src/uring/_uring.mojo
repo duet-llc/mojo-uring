@@ -145,14 +145,14 @@ struct Uring(Movable):
 
     def _complete(mut self):
         var tail = self._cq._ktail[].load[ordering=Ordering.ACQUIRE]()
-        while self._cq._head != tail:
-            ref cqe = self._cq._cqes[
-                unsafe_offset=self._cq._head & self._cq._mask
-            ]
+        var current = self._cq._head
+        while current != tail:
+            ref cqe = self._cq._cqes[unsafe_offset=current & self._cq._mask]
             if cqe._user_data:
                 _coro_resume_fn(_coro_from_addr(Int(cqe._user_data)))
             else:
                 self._cq._head += 1
+            current += 1
 
         self._cq._khead[].store[ordering=Ordering.RELEASE](self._cq._head)
 

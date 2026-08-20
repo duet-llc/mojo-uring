@@ -2,6 +2,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from std.builtin.coroutine import (
+    _CoroutineContext,
+    _coro_resume_fn,
+    _coro_resume_noop_callback,
+)
 from std.testing import TestSuite, assert_raises
 
 from uring import Context, Params, Uring
@@ -16,10 +21,15 @@ def test_uring_invalid_entries() raises:
         _ = Uring(65536, Params())
 
 
-def test_uring_nop_without_cancelation_compiles() raises:
+def test_uring_nop_completion() raises:
     var io = Uring(8, Params())
     var ctx = Context()
     var co = io.nop(ctx)
+    # RaisingCoroutine does not expose Coroutine._set_noop_callback.
+    co._get_ctx[_CoroutineContext]()[]._resume_fn = _coro_resume_noop_callback
+    _coro_resume_fn(co._handle)
+    io._submit()
+    io._complete()
     co^._unsafe_force_deinit()
 
 
