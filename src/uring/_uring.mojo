@@ -3,13 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from std.atomic import Ordering
-from std.builtin.coroutine import AnyCoroutine
+from std.builtin.coroutine import AnyCoroutine, _coro_resume_fn
 from std.ffi import ErrNo, c_int, c_long, c_size_t
 from std.sys import inlined_assembly
 from std.sys.info import CompilationTarget, is_triple, size_of
 
 from ._context import Context
-from ._coroutine import _coro_to_addr, _suspend_async
+from ._coroutine import _coro_from_addr, _coro_to_addr, _suspend_async
 from ._cq import _CompletionQueue, _CompletionQueueEntry
 from ._fd import _FileDescriptor
 from ._mmap import _Mmap
@@ -142,6 +142,19 @@ struct Uring(Movable):
 
         debug_assert["safe"](result > 0, "submission failed")
         self._sq._head += UInt32(result)
+
+    def _complete(mut self):
+        var tail = self._cq._ktail[].load[ordering=Ordering.ACQUIRE]()
+        while self._cq._head != tail:
+            ref cqe = self._cq._cqes[
+                unsafe_offset=self._cq._head & self._cq._mask
+            ]
+            if cqe._user_data:
+                _coro_resume_fn(_coro_from_addr(Int(cqe._user_data)))
+            else:
+                self._cq._head += 1
+
+        self._cq._khead[].store[ordering=Ordering.RELEASE](self._cq._head)
 
     @always_inline
     def _schedule[
