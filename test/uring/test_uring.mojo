@@ -2,21 +2,27 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from std.builtin.coroutine import (
-    AnyCoroutine,
-    _CoroutineContext,
-    _coro_resume_fn,
-)
+from std.builtin.coroutine import _coro_resume_fn
 from std.testing import TestSuite, assert_raises, assert_true
 
 from uring import Context, Params, Uring
-from uring._coroutine import _coro_from_addr, _coro_to_addr
 
 
-def _mark_completed(payload: AnyCoroutine):
-    Pointer[Bool, MutUntrackedOrigin](
-        unsafe_from_address=_coro_to_addr(payload)
-    )[] = True
+def _mark_completed(mut completed: Bool):
+    completed = True
+
+
+struct _CallbackContext(TrivialRegisterPassable):
+    comptime Callback = def(mut Bool) thin -> None
+
+    var _callback: Self.Callback
+    var _payload: Pointer[Bool, MutUntrackedOrigin]
+
+    def __init__(out self, mut completed: Bool):
+        self._callback = _mark_completed
+        self._payload = Pointer[Bool, MutUntrackedOrigin](
+            unsafe_from_address=Int(MutPointer(to=completed))
+        )
 
 
 def test_uring_success() raises:
@@ -40,9 +46,7 @@ def test_uring_nop_completion() raises:
     var ctx = Context()
     var co = io.nop(ctx)
     var completed = False
-    var completion = co._get_ctx[_CoroutineContext]()
-    completion[]._resume_fn = _mark_completed
-    completion[]._parent_hdl = _coro_from_addr(Int(MutPointer(to=completed)))
+    co._get_ctx[_CallbackContext]()[] = _CallbackContext(completed)
     _coro_resume_fn(co._handle)
     io._submit()
     io._complete()
